@@ -41,8 +41,14 @@ Never commit `.env`. Use a long random JWT secret and HTTPS in production. To ch
 
 - Administrator: `admin@zurc-demo.edu` / `Admin123!`
 - Researcher: `researcher@zurc-demo.edu` / `Research123!`
+- Visitor: `visitor@zurc-demo.edu` / `Research123!`
 
 These credentials are for demonstration only.
+
+The seed creates 8 accounts, 12 researcher profiles, 8 research areas, 10
+projects, 30 publications, 8 events, 8 news items, 8 resources, and 5 contact
+messages. Running `npm run db:seed` replaces all data in the development
+database, including records added manually through the administration UI.
 
 ## Optional local AI
 

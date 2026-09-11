@@ -1249,14 +1249,15 @@ Core entity attributes depend on their entity key and not on other non-key attri
 
 The repeatable seed clears dependent tables in safe order and creates:
 
-- 2 users: one administrator and one linked researcher account;
-- 5 research areas;
-- 6 researcher profiles;
-- 4 projects with teams and areas;
-- 12 publications with ordered authors, areas, DOI values, and project links;
-- 3 future events;
-- 3 published news records;
-- 3 published resources.
+- 8 users across administrator, researcher, visitor, and inactive-account cases;
+- 8 research areas;
+- 12 researcher profiles, including four profiles linked to user accounts;
+- 10 projects covering planned, active, completed, and suspended states;
+- 30 publications with ordered authors, areas, DOI values, project links, multiple years, and all publication types;
+- 8 future events;
+- 8 news records, including one unpublished draft;
+- 8 resources, including one unpublished administrative record;
+- 5 contact messages covering all message-workflow statuses.
 
 The dataset is intentionally interconnected to demonstrate counts, pagination, filters, detail pages, relationship management, and assistant retrieval. Running the seed is destructive to existing data and is intended for demonstration/development databases.
 
