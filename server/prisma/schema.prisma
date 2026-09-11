@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  VISITOR
+  RESEARCHER
+  ADMIN
+}
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+}
+enum PublicationType {
+  JOURNAL_ARTICLE
+  CONFERENCE_PAPER
+  BOOK_CHAPTER
+  THESIS
+  REPORT
+  DATASET
+}
+enum ResourceType {
+  DOCUMENT
+  DATASET
+  SOFTWARE
+  LINK
+}
+enum MessageStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+enum AiRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  firstName String
+  lastName String
+  role Role @default(RESEARCHER)
+  active Boolean @default(true)
+  researcher Researcher?
+  conversations AiConversation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([role, active])
+}
+model Researcher {
+  id String @id @default(cuid())
+  userId String? @unique
+  user User? @relation(fields:[userId], references:[id], onDelete:SetNull)
+  name String
+  slug String @unique
+  biography String @db.Text
+  position String
+  email String @unique
+  photoUrl String?
+  affiliation String
+  orcid String? @unique
+  linkedInUrl String?
+  scholarUrl String?
+  interests String[]
+  active Boolean @default(true)
+  areas ResearcherArea[]
+  publications PublicationAuthor[]
+  projects ProjectResearcher[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([name])
+}
+model ResearchArea {
+  id String @id @default(cuid())
+  name String @unique
+  slug String @unique
+  description String @db.Text
+  icon String
+  imageUrl String?
+  objectives String[]
+  researchers ResearcherArea[]
+  projects ProjectArea[]
+  publications PublicationArea[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model ResearcherArea {
+  researcherId String
+  areaId String
+  researcher Researcher @relation(fields:[researcherId], references:[id], onDelete:Cascade)
+  area ResearchArea @relation(fields:[areaId], references:[id], onDelete:Cascade)
+  @@id([researcherId, areaId])
+}
+model Project {
+  id String @id @default(cuid())
+  title String
+  slug String @unique
+  description String @db.Text
+  abstract String @db.Text
+  objectives String[]
+  startDate DateTime
+  endDate DateTime?
+  status ProjectStatus @default(PLANNED)
+  funding String?
+  featured Boolean @default(false)
+  areas ProjectArea[]
+  researchers ProjectResearcher[]
+  publications Publication[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, startDate])
+  @@index([title])
+}
+model ProjectArea {
+  projectId String
+  areaId String
+  project Project @relation(fields:[projectId], references:[id], onDelete:Cascade)
+  area ResearchArea @relation(fields:[areaId], references:[id], onDelete:Cascade)
+  @@id([projectId, areaId])
+}
+model ProjectResearcher {
+  projectId String
+  researcherId String
+  role String?
+  project Project @relation(fields:[projectId], references:[id], onDelete:Cascade)
+  researcher Researcher @relation(fields:[researcherId], references:[id], onDelete:Cascade)
+  @@id([projectId, researcherId])
+}
+model Publication {
+  id String @id @default(cuid())
+  title String
+  slug String @unique
+  abstract String @db.Text
+  publicationDate DateTime
+  doi String? @unique
+  venue String
+  keywords String[]
+  type PublicationType
+  pdfUrl String?
+  externalUrl String?
+  featured Boolean @default(false)
+  projectId String?
+  project Project? @relation(fields:[projectId], references:[id], onDelete:SetNull)
+  authors PublicationAuthor[]
+  areas PublicationArea[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([publicationDate])
+  @@index([type])
+  @@index([title])
+}
+model PublicationAuthor {
+  publicationId String
+  researcherId String
+  authorOrder Int
+  corresponding Boolean @default(false)
+  publication Publication @relation(fields:[publicationId], references:[id], onDelete:Cascade)
+  researcher Researcher @relation(fields:[researcherId], references:[id], onDelete:Cascade)
+  @@id([publicationId, researcherId])
+  @@unique([publicationId, authorOrder])
+}
+model PublicationArea {
+  publicationId String
+  areaId String
+  publication Publication @relation(fields:[publicationId], references:[id], onDelete:Cascade)
+  area ResearchArea @relation(fields:[areaId], references:[id], onDelete:Cascade)
+  @@id([publicationId, areaId])
+}
+model Event {
+  id String @id @default(cuid())
+  title String
+  slug String @unique
+  description String @db.Text
+  startDate DateTime
+  endDate DateTime?
+  location String
+  imageUrl String?
+  registrationUrl String?
+  published Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([startDate, published])
+}
+model News {
+  id String @id @default(cuid())
+  title String
+  slug String @unique
+  excerpt String
+  content String @db.Text
+  imageUrl String?
+  publishedAt DateTime?
+  published Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([published, publishedAt])
+}
+model Resource {
+  id String @id @default(cuid())
+  title String
+  description String
+  type ResourceType
+  url String
+  published Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model ContactMessage {
+  id String @id @default(cuid())
+  name String
+  email String
+  subject String
+  message String @db.Text
+  status MessageStatus @default(NEW)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, createdAt])
+}
+model AiConversation {
+  id String @id @default(cuid())
+  userId String?
+  user User? @relation(fields:[userId], references:[id], onDelete:SetNull)
+  sessionId String
+  title String?
+  messages AiMessage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([sessionId])
+}
+model AiMessage {
+  id String @id @default(cuid())
+  conversationId String
+  conversation AiConversation @relation(fields:[conversationId], references:[id], onDelete:Cascade)
+  role AiRole
+  content String @db.Text
+  sources Json?
+  createdAt DateTime @default(now())
+  @@index([conversationId, createdAt])
+}

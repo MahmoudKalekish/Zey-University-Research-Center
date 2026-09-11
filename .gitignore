@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.local
+coverage
+*.log
+*.tsbuildinfo
+client/vite.config.js
+client/vite.config.d.ts
+.DS_Store
+server/prisma/dev.db
