@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { slugify } from "./utils/http.js";
 import { registerSchema } from "./validation/schemas.js";
+import { projectStatusFromQuery, searchTerms } from "./services/search.service.js";
 describe("slugify", () =>
   it("normalizes research titles", () =>
     expect(slugify("Artificial Intelligence & Health")).toBe(
@@ -27,5 +28,20 @@ describe("registration validation", () => {
     expect(
       registerSchema.safeParse({ ...base, password: "Password1" }).success,
     ).toBe(true);
+  });
+});
+
+describe("research assistant query interpretation", () => {
+  it("expands short research abbreviations", () => {
+    expect(searchTerms("Find AI and NLP papers")).toEqual(
+      expect.arrayContaining(["artificial intelligence", "natural language"]),
+    );
+  });
+
+  it("recognizes project lifecycle questions", () => {
+    expect(projectStatusFromQuery("Which projects are currently active?")).toBe(
+      "ACTIVE",
+    );
+    expect(projectStatusFromQuery("Show completed projects")).toBe("COMPLETED");
   });
 });

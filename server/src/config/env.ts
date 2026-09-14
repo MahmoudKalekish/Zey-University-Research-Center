@@ -11,5 +11,6 @@ const schema = z.object({
   CLIENT_URL: z.string().url().default("http://localhost:5173"),
   OLLAMA_URL: z.string().url().default("http://localhost:11434"),
   OLLAMA_MODEL: z.string().default("llama3.2:3b"),
+  OLLAMA_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(60000),
 });
 export const env = schema.parse(process.env);

@@ -613,7 +613,7 @@ flowchart LR
   AC --> HC
   HC -->|JSON + optional Bearer JWT| MW
   MW --> AU --> RT --> VA --> SV --> PR --> DB
-  SV -. 6-second bounded request .-> OL
+  SV -. configurable bounded request .-> OL
   EH --> HC --> TS
 ```
 
@@ -734,7 +734,7 @@ sequenceDiagram
 - Ollama is called only when sources exist.
 - The prompt says to use only supplied context and cite record titles.
 - Context contains selected fields, not unrestricted database access.
-- A six-second timeout prevents the UI from waiting indefinitely.
+- A configurable timeout (60 seconds by default) prevents the UI from waiting indefinitely while accommodating CPU inference.
 - Sources are returned independently of generated text.
 - No-match responses explicitly acknowledge absence.
 - Fallback output is deterministic and does not call an LLM.
