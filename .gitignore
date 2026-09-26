@@ -9,3 +9,4 @@ client/vite.config.js
 client/vite.config.d.ts
 .DS_Store
 server/prisma/dev.db
+.worktrees/
