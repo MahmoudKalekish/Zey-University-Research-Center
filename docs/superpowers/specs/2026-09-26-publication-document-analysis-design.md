@@ -137,7 +137,7 @@ Page-aware extracted content:
 - `content Text`
 - `normalizedText Text` — normalized retrieval representation.
 - `tokenEstimate Int`
-- timestamps as needed.
+- `createdAt DateTime`
 
 Constraints and indexes:
 
@@ -150,7 +150,8 @@ Constraints and indexes:
 Cache generated summaries separately so they are invalidated when a PDF changes:
 
 - `id String` — primary key.
-- `documentId String` — unique FK, cascade on document deletion.
+- `documentId String` — FK to PublicationDocument, cascade on document deletion.
+- `detailLevel SummaryDetailLevel` — `SHORT`, `STANDARD`, or `DETAILED`.
 - `status SummaryProcessingStatus @default(PENDING)` — `PENDING`, `PROCESSING`, `READY`, or `FAILED`.
 - `model String?` — null for deterministic fallback.
 - `mode SummaryMode?` — `OLLAMA` or `FALLBACK` after successful processing.
@@ -161,7 +162,7 @@ Cache generated summaries separately so they are invalidated when a PDF changes:
 - `createdAt DateTime`
 - `updatedAt DateTime`
 
-The summary JSON is validated before persistence. A malformed model response is discarded in favor of fallback.
+The composite key `(documentId, detailLevel)` is unique so each requested form has an independent cache. The summary JSON is validated before persistence. A malformed model response is discarded in favor of fallback.
 
 ## 7. File storage
 
@@ -229,6 +230,12 @@ Summary generation must not send only the abstract or first chunks to Ollama.
 7. Validate all required fields and cited pages.
 8. Cache the result against the current document checksum.
 
+Detail levels behave as follows:
+
+- `SHORT`: only the essential 3–5 sentence overview and key findings.
+- `STANDARD`: the complete default section set with concise supporting evidence.
+- `DETAILED`: the complete section set with fuller methodology, findings, conclusions, limitations, uncertainty, and material quantitative evidence.
+
 Prompts explicitly require:
 
 - no invented authors, citations, statistics, methods, findings, or limitations;
@@ -281,8 +288,8 @@ Document mode is separate from center-wide discovery mode so a question about on
 ### Public/authorized reading
 
 - `GET /api/publications/:slug/document` — stream managed PDF with safe headers and authorization.
-- `GET /api/publications/:slug/summary` — return cached summary/status.
-- `POST /api/publications/:slug/summary` — request generation; returns cached result or `202` processing state.
+- `GET /api/publications/:slug/summary?detailLevel=STANDARD` — return the requested cached summary/status.
+- `POST /api/publications/:slug/summary` — request `{detailLevel}` generation; returns the matching cached result or `202` processing state.
 - `POST /api/publications/:slug/ask` — ask a document-specific question.
 
 Responses use the existing safe API error shape and add stable processing codes where the client needs actionable states.
@@ -309,6 +316,7 @@ Responses use the existing safe API error shape and add stable processing codes 
 
 - Show `Read PDF`, `Summarize`, and `Ask this publication` actions only for published, ready documents.
 - Render structured summary sections rather than an unformatted chat paragraph.
+- Offer Short, Standard, and Detailed summary controls and preserve independent loading/cache states.
 - Show page-reference chips linked to the PDF endpoint with a page fragment where supported.
 - Clearly label Ollama and fallback modes.
 - Provide loading, queued, processing, failed, empty, and retry states without browser alerts.
