@@ -6,7 +6,7 @@
 
 ## 1. Purpose
 
-Extend ZURC from metadata-only research discovery into a controlled publication-document system. Administrators and eligible researchers will upload publication PDFs, the backend will extract and index all available pages, and visitors will be able to request structured summaries or ask document-specific questions. Answers must be grounded in the uploaded document and expose page-aware evidence. Optional local Ollama generation may improve wording, but document access and deterministic fallback must continue when Ollama is unavailable.
+Extend ZURC from metadata-only research discovery into a controlled publication-document system. Administrators and eligible researchers will upload publication PDFs, the backend will extract and index all available pages, and visitors will be able to request structured summaries or ask document-specific questions. Answers must be grounded in the uploaded document and expose page-aware evidence. Generation runs exclusively through the locally hosted Ollama Qwen model; uploaded content is never sent to a paid or cloud AI provider. Document access and deterministic fallback must continue when local Ollama is unavailable.
 
 ## 2. Goals
 
@@ -19,13 +19,14 @@ Extend ZURC from metadata-only research discovery into a controlled publication-
 - Answer focused questions using the publication document as the primary source.
 - Clearly identify missing or unstated information.
 - Keep the assistant functional without Ollama through database search and deterministic document fallback.
+- Keep document text, prompts, summaries, and questions on the local ZURC/Ollama environment.
 - Protect uploads with authorization, validation, bounded resource usage, and indirect file access.
 
 ## 3. Non-goals
 
 - Arbitrary visitor uploads.
 - A general-purpose internet or encyclopedic chatbot.
-- Paid AI APIs.
+- Paid or cloud-hosted AI APIs, including OpenAI, Claude, Gemini, and equivalent providers.
 - Automatic trust in model-generated claims.
 - OCR in the first implementation. Image-only/scanned PDFs will be detected and reported as requiring OCR.
 - DOCX, spreadsheets, images, or other file formats in the first implementation.
@@ -173,6 +174,8 @@ Environment variables:
 - `PUBLICATION_STORAGE_DIR` — absolute or server-relative storage root.
 - `MAX_PUBLICATION_PDF_MB` — default `25`, bounded by environment validation.
 - Existing Ollama variables remain in use.
+
+`OLLAMA_URL` must identify the locally running Ollama process or Docker service. The configured development model is `qwen2.5:0.5b`, selected for the available 8 GB laptop. The model remains configurable so a larger local Qwen model can be used on more capable hardware. No fallback code may call an external AI endpoint.
 
 ## 8. Upload validation and security
 
@@ -330,9 +333,10 @@ All successful mutations show toasts. Field errors appear beside metadata contro
 
 - Use a maintained Express multipart middleware for bounded uploads.
 - Use a maintained Node-compatible PDF text extraction library capable of page-level extraction.
+- Use the existing local Ollama HTTP endpoint with the configured Qwen model for all generative operations.
 - Encapsulate storage, extraction, chunking, retrieval, summarization, and workflow rules in separate services.
 - Routes remain thin and delegate authorization-sensitive operations to services.
-- No Python service, Redis, object store, or paid API is required.
+- No Python service, Redis, object store, paid API, cloud model, or external document-processing service is required or permitted.
 - Exact dependency versions will be locked in the implementation plan after checking compatibility with Node 20+, TypeScript, and the existing ESM build.
 
 ## 16. Testing strategy
