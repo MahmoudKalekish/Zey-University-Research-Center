@@ -10,3 +10,5 @@ client/vite.config.d.ts
 .DS_Store
 server/prisma/dev.db
 .worktrees/
+server/storage/publications/*
+!server/storage/publications/.gitkeep
