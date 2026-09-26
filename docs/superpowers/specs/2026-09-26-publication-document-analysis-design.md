@@ -99,6 +99,8 @@ Add:
 - `submittedAt DateTime?`
 - `publishedAt DateTime?`
 - `archivedAt DateTime?`
+- `reviewedAt DateTime?`
+- `reviewNote String?` — administrator explanation when a submission is returned for correction.
 
 The existing `pdfUrl` remains temporarily for migration compatibility and external legacy PDFs. A managed document takes precedence when present.
 
@@ -149,10 +151,13 @@ Cache generated summaries separately so they are invalidated when a PDF changes:
 
 - `id String` — primary key.
 - `documentId String` — unique FK, cascade on document deletion.
+- `status SummaryProcessingStatus @default(PENDING)` — `PENDING`, `PROCESSING`, `READY`, or `FAILED`.
 - `model String?` — null for deterministic fallback.
-- `mode SummaryMode` — `OLLAMA` or `FALLBACK`.
-- `content Json` — validated structured summary sections.
+- `mode SummaryMode?` — `OLLAMA` or `FALLBACK` after successful processing.
+- `content Json?` — validated structured summary sections after successful processing.
 - `sourcePages Int[]` — pages contributing to the summary.
+- `failureCode String?`
+- `failureMessage String?`
 - `createdAt DateTime`
 - `updatedAt DateTime`
 
@@ -207,7 +212,7 @@ Environment variables:
 11. Replace all chunks atomically and record page/character counts.
 12. Mark the document `READY`; otherwise mark it `FAILED` with a safe reason.
 
-The implementation will include a small persistent polling worker inside the backend process. It claims `PENDING` work from PostgreSQL and can recover jobs left in `PROCESSING` after a restart. This avoids Redis or a separate queue while preventing an upload HTTP request from blocking for full extraction.
+The implementation will include a small persistent polling worker inside the backend process. It claims pending document-extraction and summary-generation work from PostgreSQL and can recover jobs left in `PROCESSING` after a restart. This avoids Redis or a separate queue while preventing upload and long-summary HTTP requests from blocking until analysis finishes.
 
 ## 10. Complete-document summarization
 
