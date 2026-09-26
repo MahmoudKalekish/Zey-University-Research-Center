@@ -25,6 +25,33 @@ enum PublicationType {
   REPORT
   DATASET
 }
+enum PublicationWorkflowStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+enum SummaryProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+enum SummaryDetailLevel {
+  SHORT
+  STANDARD
+  DETAILED
+}
+enum SummaryMode {
+  OLLAMA
+  FALLBACK
+}
 enum ResourceType {
   DOCUMENT
   DATASET
@@ -150,6 +177,13 @@ model Publication {
   featured Boolean @default(false)
   projectId String?
   project Project? @relation(fields:[projectId], references:[id], onDelete:SetNull)
+  workflowStatus PublicationWorkflowStatus @default(DRAFT)
+  submittedAt DateTime?
+  publishedAt DateTime?
+  archivedAt DateTime?
+  reviewedAt DateTime?
+  reviewNote String? @db.Text
+  document PublicationDocument?
   authors PublicationAuthor[]
   areas PublicationArea[]
   createdAt DateTime @default(now())
@@ -157,6 +191,59 @@ model Publication {
   @@index([publicationDate])
   @@index([type])
   @@index([title])
+}
+model PublicationDocument {
+  id String @id @default(cuid())
+  publicationId String @unique
+  publication Publication @relation(fields:[publicationId], references:[id], onDelete:Cascade)
+  originalName String
+  storageKey String @unique
+  mimeType String
+  sizeBytes Int
+  sha256 String
+  pageCount Int?
+  characterCount Int?
+  status DocumentProcessingStatus @default(PENDING)
+  failureCode String?
+  failureMessage String? @db.Text
+  processedAt DateTime?
+  chunks DocumentChunk[]
+  summaries PublicationSummary[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, createdAt])
+}
+model DocumentChunk {
+  id String @id @default(cuid())
+  documentId String
+  document PublicationDocument @relation(fields:[documentId], references:[id], onDelete:Cascade)
+  chunkIndex Int
+  pageStart Int
+  pageEnd Int
+  sectionTitle String?
+  content String @db.Text
+  normalizedText String @db.Text
+  tokenEstimate Int
+  createdAt DateTime @default(now())
+  @@unique([documentId, chunkIndex])
+  @@index([documentId, pageStart])
+}
+model PublicationSummary {
+  id String @id @default(cuid())
+  documentId String
+  document PublicationDocument @relation(fields:[documentId], references:[id], onDelete:Cascade)
+  detailLevel SummaryDetailLevel
+  status SummaryProcessingStatus @default(PENDING)
+  model String?
+  mode SummaryMode?
+  content Json?
+  sourcePages Int[]
+  failureCode String?
+  failureMessage String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([documentId, detailLevel])
+  @@index([status, createdAt])
 }
 model PublicationAuthor {
   publicationId String
