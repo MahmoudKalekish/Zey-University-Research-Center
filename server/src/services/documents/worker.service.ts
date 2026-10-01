@@ -2,6 +2,7 @@ import { prisma } from "../../config/db.js";
 import { chunkPages, isTextUsable, type ChunkDraft } from "./chunk.service.js";
 import { extractPdfPages, PdfProcessingError, type ExtractedPage } from "./pdf.service.js";
 import { resolveStoragePath } from "./storage.service.js";
+import { processNextSummary } from "./summary.service.js";
 
 interface ClaimedDocument {
   id: string;
@@ -128,8 +129,10 @@ export function startDocumentWorker(intervalMilliseconds = 1500): StopWorker {
     if (stopped || processing) return;
     processing = true;
     try {
-      while (!stopped && (await processNextDocument())) {
-        // Drain queued documents one at a time.
+      while (!stopped) {
+        const processedDocument = await processNextDocument();
+        const processedSummary = await processNextSummary();
+        if (!processedDocument && !processedSummary) break;
       }
     } catch (error) {
       console.error("Publication document worker failed", error);
