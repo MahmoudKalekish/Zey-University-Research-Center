@@ -18,6 +18,7 @@ import { AuthPage } from "./pages/Auth";
 import { About, Contact, GlobalSearch } from "./pages/Static";
 import { Admin } from "./pages/Admin";
 import { ResearcherSpace } from "./pages/ResearcherSpace";
+import { ResearcherPublicationDraft } from "./pages/ResearcherPublicationDraft";
 export default function App() {
   return (
     <Routes>
@@ -67,6 +68,14 @@ export default function App() {
         <Route path="login" element={<AuthPage />} />
         <Route path="register" element={<AuthPage register />} />
         <Route path="researcher" element={<ResearcherSpace />} />
+        <Route
+          path="researcher/publications/new"
+          element={<ResearcherPublicationDraft />}
+        />
+        <Route
+          path="researcher/publications/:id"
+          element={<ResearcherPublicationDraft />}
+        />
       </Route>
       <Route path="/admin" element={<Admin />} />
       <Route path="*" element={<NavigateHome />} />

@@ -5,7 +5,10 @@ import type {
 } from "@prisma/client";
 import { HttpError } from "../utils/http.js";
 
-const ADMIN_TRANSITIONS: Record<PublicationWorkflowStatus, PublicationWorkflowStatus[]> = {
+const ADMIN_TRANSITIONS: Record<
+  PublicationWorkflowStatus,
+  PublicationWorkflowStatus[]
+> = {
   DRAFT: ["READY_FOR_REVIEW"],
   READY_FOR_REVIEW: ["DRAFT", "PUBLISHED"],
   PUBLISHED: ["ARCHIVED"],
@@ -17,7 +20,8 @@ export function canTransitionPublication(
   to: PublicationWorkflowStatus,
   role: Role,
 ) {
-  if (role === "RESEARCHER") return from === "DRAFT" && to === "READY_FOR_REVIEW";
+  if (role === "RESEARCHER")
+    return from === "DRAFT" && to === "READY_FOR_REVIEW";
   if (role !== "ADMIN") return false;
   return ADMIN_TRANSITIONS[from].includes(to);
 }
@@ -27,10 +31,27 @@ export function assertPublicationPublishable(publication: {
   document: { status: DocumentProcessingStatus } | null;
 }) {
   if (publication.workflowStatus !== "READY_FOR_REVIEW") {
-    throw new HttpError(409, "The publication must be ready for review before it can be published");
+    throw new HttpError(
+      409,
+      "The publication must be ready for review before it can be published",
+    );
   }
   if (publication.document?.status !== "READY") {
-    throw new HttpError(409, "A successfully processed PDF is required before publication");
+    throw new HttpError(
+      409,
+      "A successfully processed PDF is required before publication",
+    );
+  }
+}
+
+export function assertResearcherCanEdit(
+  workflowStatus: PublicationWorkflowStatus,
+) {
+  if (workflowStatus !== "DRAFT") {
+    throw new HttpError(
+      409,
+      "This publication must be returned to draft before a researcher can edit it",
+    );
   }
 }
 
@@ -40,7 +61,12 @@ export function buildPublicationTransitionData(
   reviewNote?: string,
 ) {
   if (to === "READY_FOR_REVIEW") {
-    return { workflowStatus: to, submittedAt: now, reviewedAt: null, reviewNote: null };
+    return {
+      workflowStatus: to,
+      submittedAt: now,
+      reviewedAt: null,
+      reviewNote: null,
+    };
   }
   if (to === "DRAFT") {
     return {
@@ -61,5 +87,10 @@ export function buildPublicationTransitionData(
       reviewNote: null,
     };
   }
-  return { workflowStatus: to, archivedAt: now, reviewedAt: now, reviewNote: reviewNote ?? null };
+  return {
+    workflowStatus: to,
+    archivedAt: now,
+    reviewedAt: now,
+    reviewNote: reviewNote ?? null,
+  };
 }

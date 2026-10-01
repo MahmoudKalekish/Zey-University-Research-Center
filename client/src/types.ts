@@ -1,3 +1,7 @@
+import type {
+  WorkflowStatus,
+  DocumentStatus,
+} from "./types/publication-document";
 export type Area = {
   id: string;
   name: string;
@@ -36,6 +40,17 @@ export type Project = {
   _count?: Record<string, number>;
 };
 export type Publication = {
+  workflowStatus: WorkflowStatus;
+  reviewNote?: string | null;
+  document?: Pick<
+    DocumentStatus,
+    "id" | "status" | "originalName" | "sizeBytes" | "pageCount"
+  > | null;
+  documentCapabilities?: {
+    canRead: boolean;
+    canSummarize: boolean;
+    canAsk: boolean;
+  };
   id: string;
   title: string;
   slug: string;

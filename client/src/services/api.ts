@@ -11,15 +11,16 @@ export class ApiError extends Error {
 }
 export async function api<T>(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem("token");
+  const headers = new Headers(options.headers);
+  if (options.body instanceof FormData) headers.delete("content-type");
+  else if (!headers.has("content-type"))
+    headers.set("content-type", "application/json");
+  if (token) headers.set("authorization", `Bearer ${token}`);
   let response: Response;
   try {
     response = await fetch(`${BASE}${path}`, {
       ...options,
-      headers: {
-        "content-type": "application/json",
-        ...((token ? { authorization: `Bearer ${token}` } : {}) as any),
-        ...options.headers,
-      },
+      headers,
     });
   } catch {
     throw new ApiError(

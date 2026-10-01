@@ -1,6 +1,7 @@
 import type { DocumentProcessingStatus } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { HttpError } from "../../utils/http.js";
+import { buildPublicationTransitionData } from "../../domain/publication-workflow.js";
 import {
   deleteStoredPdf,
   storePdf,
@@ -22,7 +23,8 @@ interface DocumentStatusRecord {
   updatedAt: Date;
 }
 
-export interface DocumentStatusDto extends Omit<DocumentStatusRecord, "processedAt" | "updatedAt"> {
+export interface DocumentStatusDto
+  extends Omit<DocumentStatusRecord, "processedAt" | "updatedAt"> {
   processedAt: string | null;
   updatedAt: string;
 }
@@ -56,7 +58,7 @@ const prismaRepository = {
     return prisma.$transaction(async (transaction) => {
       const publication = await transaction.publication.findUnique({
         where: { id: input.publicationId },
-        select: { id: true },
+        select: { id: true, workflowStatus: true },
       });
       if (!publication) throw new HttpError(404, "Publication not found");
       const previous = await transaction.publicationDocument.findUnique({
@@ -64,31 +66,25 @@ const prismaRepository = {
         select: { id: true, storageKey: true },
       });
       if (previous) {
-        await transaction.publicationSummary.deleteMany({ where: { documentId: previous.id } });
-        await transaction.documentChunk.deleteMany({ where: { documentId: previous.id } });
+        // A new document ID prevents an in-flight old extraction or summary from updating the replacement.
+        await transaction.publicationDocument.delete({
+          where: { id: previous.id },
+        });
       }
-      const document = await transaction.publicationDocument.upsert({
-        where: { publicationId: input.publicationId },
-        create: {
+      if (publication.workflowStatus === "PUBLISHED") {
+        await transaction.publication.update({
+          where: { id: publication.id },
+          data: buildPublicationTransitionData("READY_FOR_REVIEW", new Date()),
+        });
+      }
+      const document = await transaction.publicationDocument.create({
+        data: {
           publicationId: input.publicationId,
           originalName: input.originalName,
           mimeType: input.mimeType,
           storageKey: input.stored.storageKey,
           sizeBytes: input.stored.sizeBytes,
           sha256: input.stored.sha256,
-        },
-        update: {
-          originalName: input.originalName,
-          mimeType: input.mimeType,
-          storageKey: input.stored.storageKey,
-          sizeBytes: input.stored.sizeBytes,
-          sha256: input.stored.sha256,
-          pageCount: null,
-          characterCount: null,
-          status: "PENDING",
-          failureCode: null,
-          failureMessage: null,
-          processedAt: null,
         },
         select: {
           id: true,
@@ -127,9 +123,14 @@ const prismaRepository = {
   },
 };
 
-export function createDocumentService(dependencies: DocumentServiceDependencies) {
+export function createDocumentService(
+  dependencies: DocumentServiceDependencies,
+) {
   return {
-    async replacePublicationDocument(publicationId: string, upload: Express.Multer.File) {
+    async replacePublicationDocument(
+      publicationId: string,
+      upload: Express.Multer.File,
+    ) {
       dependencies.validateUpload(upload);
       const stored = await dependencies.store(upload.buffer);
       let replacement;
@@ -144,10 +145,15 @@ export function createDocumentService(dependencies: DocumentServiceDependencies)
         await dependencies.remove(stored.storageKey).catch(() => undefined);
         throw error;
       }
-      if (replacement.previousStorageKey && replacement.previousStorageKey !== stored.storageKey) {
-        await dependencies.remove(replacement.previousStorageKey).catch((error) => {
-          console.warn("Could not remove replaced publication file", error);
-        });
+      if (
+        replacement.previousStorageKey &&
+        replacement.previousStorageKey !== stored.storageKey
+      ) {
+        await dependencies
+          .remove(replacement.previousStorageKey)
+          .catch((error) => {
+            console.warn("Could not remove replaced publication file", error);
+          });
       }
       return toStatusDto(replacement.document);
     },
@@ -169,3 +175,32 @@ const service = createDocumentService({
 
 export const replacePublicationDocument = service.replacePublicationDocument;
 export const getDocumentStatus = service.getDocumentStatus;
+
+export function createDocumentDeletionService(dependencies: {
+  deleteRecord: (publicationId: string) => Promise<string | null>;
+  remove: (storageKey: string) => Promise<void>;
+}) {
+  return async (publicationId: string) => {
+    const storageKey = await dependencies.deleteRecord(publicationId);
+    if (storageKey) {
+      await dependencies.remove(storageKey).catch((error) => {
+        console.warn("Could not remove deleted publication file", error);
+      });
+    }
+  };
+}
+
+export const deletePublicationWithDocument = createDocumentDeletionService({
+  async deleteRecord(publicationId) {
+    return prisma.$transaction(async (transaction) => {
+      const publication = await transaction.publication.findUnique({
+        where: { id: publicationId },
+        select: { document: { select: { storageKey: true } } },
+      });
+      if (!publication) throw new HttpError(404, "Publication not found");
+      await transaction.publication.delete({ where: { id: publicationId } });
+      return publication.document?.storageKey ?? null;
+    });
+  },
+  remove: deleteStoredPdf,
+});

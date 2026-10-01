@@ -44,6 +44,20 @@ export const chatSchema = z.object({
   question: z.string().min(3).max(1000),
   sessionId: z.string().min(8).max(100),
 });
+export const documentQuestionSchema = z.object({
+  question: z.string().trim().min(3).max(1000),
+  sessionId: z.string().uuid(),
+});
+export const summaryRequestSchema = z.object({
+  detailLevel: z.enum(["SHORT", "STANDARD", "DETAILED"]).default("STANDARD"),
+});
+export const publicationReturnSchema = z.object({
+  reviewNote: z
+    .string()
+    .trim()
+    .min(5, "A review note of at least 5 characters is required")
+    .max(2000),
+});
 export const userSchema = z.object({
   email: z.string().email("Enter a valid email address"),
   firstName: z
@@ -137,4 +151,7 @@ export const publicationSchema = z.object({
   projectId: z.string().nullable().optional(),
   areaIds: z.array(z.string()).default([]),
   authorIds: z.array(z.string()).min(1),
+});
+export const researcherPublicationDraftSchema = publicationSchema.omit({
+  authorIds: true,
 });

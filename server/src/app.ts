@@ -9,6 +9,11 @@ import { publicRouter } from "./routes/public.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { researcherRouter } from "./routes/researcher.routes.js";
+import {
+  adminPublicationDocumentRouter,
+  publicationDocumentRouter,
+  researcherPublicationDocumentRouter,
+} from "./routes/publication-document.routes.js";
 export const app = express();
 app.use(helmet());
 app.use(
@@ -30,8 +35,13 @@ app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(optionalAuth);
 app.get("/api/health", (_q, r) => r.json({ status: "ok" }));
 app.use("/api/auth", authRouter);
-app.use("/api/admin", adminRouter);
-app.use("/api/researcher", researcherRouter);
+app.use("/api/publications", publicationDocumentRouter);
+app.use("/api/admin", adminPublicationDocumentRouter, adminRouter);
+app.use(
+  "/api/researcher",
+  researcherPublicationDocumentRouter,
+  researcherRouter,
+);
 app.use("/api", publicRouter);
 app.use(notFound);
 app.use(errorHandler);

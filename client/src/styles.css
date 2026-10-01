@@ -1833,3 +1833,207 @@ td small {
     gap: 0;
   }
 }
+
+/* Publication document workflows share the portal's existing colors and typography. */
+.document-card {
+  background: #fff;
+  border: 1px solid #dde5e8;
+  border-radius: 16px;
+  padding: clamp(16px, 3vw, 28px);
+  margin: 24px 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.document-card h2 {
+  margin: 0 0 16px;
+}
+.document-card p {
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.document-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+.document-actions .button {
+  min-height: 42px;
+}
+.document-card label,
+.draft-layout label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+.document-card input,
+.document-card textarea,
+.draft-layout input,
+.draft-layout textarea,
+.draft-layout select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #cbd5db;
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  background: #fff;
+}
+.document-card textarea,
+.draft-layout textarea {
+  resize: vertical;
+}
+.document-upload {
+  border-top: 1px solid #e5eaf0;
+  padding-top: 18px;
+}
+.document-upload p {
+  font-size: 0.875rem;
+  color: #536571;
+}
+.document-card button:disabled,
+.draft-layout button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.page-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.page-evidence a,
+.page-evidence button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #edf4f5;
+  color: #17636c;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.summary-section {
+  border-top: 1px solid #e5eaf0;
+  padding: 18px 0;
+}
+.summary-section h3 {
+  margin: 0 0 10px;
+}
+.context-banner,
+.review-note {
+  background: #edf4f5;
+  padding: 14px 18px;
+  border-radius: 10px;
+}
+.document-answer {
+  padding: 18px 0;
+  border-bottom: 1px solid #e5eaf0;
+}
+.document-answer h3 {
+  margin: 0 0 12px;
+}
+.document-answer blockquote {
+  border-left: 3px solid #73a8a7;
+  padding: 10px 16px;
+  margin: 16px 0;
+  background: #f6f9fa;
+}
+.document-question-form {
+  margin-top: 24px;
+}
+.draft-layout {
+  max-width: 1000px;
+  padding-top: 24px;
+  padding-bottom: 48px;
+}
+.draft-layout fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.draft-layout fieldset:disabled {
+  opacity: 0.8;
+}
+.draft-layout .form-card {
+  margin: 24px 0;
+}
+.draft-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.workspace-publications {
+  margin: 28px 0;
+}
+.researcher-pub {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.researcher-pub > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.editor-section-title {
+  margin: 24px 28px 8px;
+  font-size: 1.2rem;
+}
+.admin-editor > .document-card {
+  margin: 12px 24px 24px;
+}
+.admin-editor {
+  width: min(900px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.document-card .status {
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .draft-metadata-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .document-actions .button {
+    flex: 1 1 130px;
+    text-align: center;
+    justify-content: center;
+  }
+  .admin-editor > .document-card {
+    margin: 12px;
+  }
+  .editor-section-title {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+  .document-card .review-actions .button,
+  .document-question-form .button {
+    width: 100%;
+  }
+}
+/* The dialog owns vertical scrolling so metadata and review never overlap. */
+.admin-editor {
+  display: block;
+  width: min(900px, 100%);
+}
+.admin-editor > form .editor-fields {
+  overflow: visible;
+}
+.admin-editor > form > footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  padding: 1rem 1.75rem;
+  border-top: 1px solid var(--line);
+  background: #f8faf9;
+}
+.admin-editor > form > footer .message-reply {
+  margin-right: auto;
+}

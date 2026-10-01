@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { ApiError, api } from "../services/api";
+import { PublicationDocumentPanel } from "./PublicationDocumentPanel";
 import { useToast } from "./Toast";
 
 type Field = {
@@ -167,6 +168,10 @@ export function AdminEditor({
 }) {
   const [form, setForm] = useState<any>(() => ({
     ...item,
+    areaIds: item?.areas?.map((entry: { areaId: string }) => entry.areaId),
+    authorIds: item?.authors?.map(
+      (entry: { researcherId: string }) => entry.researcherId,
+    ),
     active: item?.active ?? true,
     published: item?.published ?? true,
   }));
@@ -247,7 +252,7 @@ export function AdminEditor({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <form className="admin-editor" onSubmit={submit}>
+      <div className="admin-editor">
         <header>
           <div>
             <small>
@@ -265,141 +270,160 @@ export function AdminEditor({
             <X />
           </button>
         </header>
-        <div className="editor-fields">
-          {error && (
-            <div className="form-error editor-error" role="alert">
-              {error}
-            </div>
+        <form onSubmit={submit}>
+          {entity === "publications" && (
+            <h2 className="editor-section-title">Metadata and relationships</h2>
           )}
-          {fields.map((f) => (
-            <label key={f.key}>
-              {f.label}
-              {f.type === "textarea" || f.type === "lines" ? (
-                <textarea
-                  rows={f.type === "lines" ? 3 : 5}
-                  required={f.required}
-                  readOnly={f.readOnly}
-                  aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                  value={
-                    Array.isArray(form[f.key])
-                      ? form[f.key].join("\n")
-                      : form[f.key] || ""
-                  }
-                  onChange={(e) =>
-                    setForm({ ...form, [f.key]: e.target.value })
-                  }
-                />
-              ) : f.type === "select" ? (
-                <select
-                  value={form[f.key] || f.options?.[0]}
-                  aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                  onChange={(e) =>
-                    setForm({ ...form, [f.key]: e.target.value })
-                  }
-                >
-                  {f.options?.map((o) => (
-                    <option key={o} value={o}>
-                      {f.key === "active"
-                        ? o === "true"
-                          ? "Active"
-                          : "Inactive"
-                        : o
-                            .toLowerCase()
-                            .replaceAll("_", " ")
-                            .replace(/^./, (letter) => letter.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              ) : f.type === "project" ? (
-                <select
-                  value={form[f.key] || ""}
-                  aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                  onChange={(e) =>
-                    setForm({ ...form, [f.key]: e.target.value })
-                  }
-                >
-                  <option value="">No project</option>
-                  {(refs.projects || []).map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.title}
-                    </option>
-                  ))}
-                </select>
-              ) : ["areas", "researchers"].includes(f.type || "") ? (
-                <>
-                  <select
-                    multiple
-                    size={4}
+          <div className="editor-fields">
+            {error && (
+              <div className="form-error editor-error" role="alert">
+                {error}
+              </div>
+            )}
+            {fields.map((f) => (
+              <label key={f.key}>
+                {f.label}
+                {f.type === "textarea" || f.type === "lines" ? (
+                  <textarea
+                    rows={f.type === "lines" ? 3 : 5}
+                    required={f.required}
+                    readOnly={f.readOnly}
                     aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                    value={Array.isArray(form[f.key]) ? form[f.key] : []}
+                    value={
+                      Array.isArray(form[f.key])
+                        ? form[f.key].join("\n")
+                        : form[f.key] || ""
+                    }
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        [f.key]: Array.from(
-                          e.target.selectedOptions,
-                          (x) => x.value,
-                        ),
-                      })
+                      setForm({ ...form, [f.key]: e.target.value })
+                    }
+                  />
+                ) : f.type === "select" ? (
+                  <select
+                    value={form[f.key] || f.options?.[0]}
+                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                    onChange={(e) =>
+                      setForm({ ...form, [f.key]: e.target.value })
                     }
                   >
-                    {(refs[f.type!] || []).map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {x.name || x.title}
+                    {f.options?.map((o) => (
+                      <option key={o} value={o}>
+                        {f.key === "active"
+                          ? o === "true"
+                            ? "Active"
+                            : "Inactive"
+                          : o
+                              .toLowerCase()
+                              .replaceAll("_", " ")
+                              .replace(/^./, (letter) => letter.toUpperCase())}
                       </option>
                     ))}
                   </select>
+                ) : f.type === "project" ? (
+                  <select
+                    value={form[f.key] || ""}
+                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                    onChange={(e) =>
+                      setForm({ ...form, [f.key]: e.target.value })
+                    }
+                  >
+                    <option value="">No project</option>
+                    {(refs.projects || []).map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : ["areas", "researchers"].includes(f.type || "") ? (
+                  <>
+                    <select
+                      multiple
+                      size={4}
+                      aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                      value={Array.isArray(form[f.key]) ? form[f.key] : []}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          [f.key]: Array.from(
+                            e.target.selectedOptions,
+                            (x) => x.value,
+                          ),
+                        })
+                      }
+                    >
+                      {(refs[f.type!] || []).map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name || x.title}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="field-hint">
+                      Hold Ctrl or Cmd to select more than one.
+                    </span>
+                  </>
+                ) : (
+                  <input
+                    type={f.type || "text"}
+                    required={f.required}
+                    readOnly={f.readOnly}
+                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                    value={
+                      Array.isArray(form[f.key])
+                        ? form[f.key].join("\n")
+                        : (f.type === "date"
+                            ? form[f.key]?.slice?.(0, 10)
+                            : form[f.key]) || ""
+                    }
+                    onChange={(e) =>
+                      setForm({ ...form, [f.key]: e.target.value })
+                    }
+                  />
+                )}
+                {fieldErrors[f.key]?.[0] && (
+                  <span className="field-error">{fieldErrors[f.key][0]}</span>
+                )}
+                {f.type === "password" && (
                   <span className="field-hint">
-                    Hold Ctrl or Cmd to select more than one.
+                    Use 8+ characters with an uppercase letter and a number.
                   </span>
-                </>
-              ) : (
-                <input
-                  type={f.type || "text"}
-                  required={f.required}
-                  readOnly={f.readOnly}
-                  aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                  value={
-                    Array.isArray(form[f.key])
-                      ? form[f.key].join("\n")
-                      : form[f.key]?.slice?.(0, 10) || form[f.key] || ""
-                  }
-                  onChange={(e) =>
-                    setForm({ ...form, [f.key]: e.target.value })
-                  }
-                />
-              )}
-              {fieldErrors[f.key]?.[0] && (
-                <span className="field-error">{fieldErrors[f.key][0]}</span>
-              )}
-              {f.type === "password" && (
-                <span className="field-hint">
-                  Use 8+ characters with an uppercase letter and a number.
-                </span>
-              )}
-            </label>
-          ))}
-        </div>
-        <footer>
-          {entity === "messages" && item?.email && (
-            <a
-              className="button ghost message-reply"
-              href={`mailto:${item.email}?subject=${encodeURIComponent(`Re: ${item.subject}`)}`}
-            >
-              Reply by email
-            </a>
-          )}
-          <button type="button" className="button ghost" onClick={onClose}>
-            {entity === "messages" ? "Close" : "Cancel"}
-          </button>
-          <button className="button" disabled={busy}>
-            {busy
-              ? "Saving…"
-              : entity === "messages"
-                ? "Update status"
-                : "Save"}
-          </button>
-        </footer>
-      </form>
+                )}
+              </label>
+            ))}
+          </div>
+          <footer>
+            {entity === "messages" && item?.email && (
+              <a
+                className="button ghost message-reply"
+                href={`mailto:${item.email}?subject=${encodeURIComponent(`Re: ${item.subject}`)}`}
+              >
+                Reply by email
+              </a>
+            )}
+            <button type="button" className="button ghost" onClick={onClose}>
+              {entity === "messages" ? "Close" : "Cancel"}
+            </button>
+            <button className="button" disabled={busy}>
+              {busy
+                ? "Saving…"
+                : entity === "messages"
+                  ? "Update status"
+                  : "Save"}
+            </button>
+          </footer>
+        </form>
+        {entity === "publications" && item?.id && (
+          <PublicationDocumentPanel
+            publication={form}
+            canPublish
+            onChanged={(updated) => {
+              setForm((current: Record<string, unknown>) => ({
+                ...current,
+                ...updated,
+              }));
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import type { RequestHandler } from "express";
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -7,8 +8,11 @@ export class HttpError extends Error {
     super(message);
   }
 }
-export const asyncHandler = (fn: any) => (req: any, res: any, next: any) =>
-  Promise.resolve(fn(req, res, next)).catch(next);
+export const asyncHandler =
+  (fn: RequestHandler): RequestHandler =>
+  (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
 export const pageMeta = (page: number, limit: number, total: number) => ({
   page,
   limit,

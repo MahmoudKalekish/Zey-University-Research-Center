@@ -4,7 +4,10 @@ import { asyncHandler, HttpError } from "../utils/http.js";
 import { prisma } from "../config/db.js";
 import { researcherSchema } from "../validation/schemas.js";
 import { z } from "zod";
+import { assertResearcherCanEdit } from "../domain/publication-workflow.js";
+import { slugify } from "../utils/http.js";
 
+import { requirePublicationManager } from "../services/publication-access.service.js";
 export const researcherRouter = Router();
 researcherRouter.use(authenticate, authorize("RESEARCHER", "ADMIN"));
 
@@ -51,6 +54,25 @@ researcherRouter.put(
   }),
 );
 
+researcherRouter.get(
+  "/publications/:id",
+  asyncHandler(async (request, response) => {
+    await requirePublicationManager(
+      String(request.params.id),
+      request.user!.id,
+    );
+    response.json(
+      await prisma.publication.findUniqueOrThrow({
+        where: { id: String(request.params.id) },
+        include: {
+          authors: { include: { researcher: true } },
+          areas: { include: { area: true } },
+        },
+      }),
+    );
+  }),
+);
+
 researcherRouter.put(
   "/publications/:id",
   asyncHandler(async (req: any, res: any) => {
@@ -68,6 +90,11 @@ researcherRouter.put(
     });
     if (!ownership)
       throw new HttpError(403, "You may only edit your own publications");
+    const publication = await prisma.publication.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { workflowStatus: true },
+    });
+    assertResearcherCanEdit(publication.workflowStatus);
     const data = z
       .object({
         title: z.string().min(3).optional(),
@@ -79,7 +106,10 @@ researcherRouter.put(
       })
       .parse(req.body);
     res.json(
-      await prisma.publication.update({ where: { id: req.params.id }, data }),
+      await prisma.publication.update({
+        where: { id: req.params.id },
+        data: { ...data, ...(data.title && { slug: slugify(data.title) }) },
+      }),
     );
   }),
 );

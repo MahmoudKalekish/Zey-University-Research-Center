@@ -11,6 +11,7 @@ import {
   userSchema,
 } from "../validation/schemas.js";
 import { z } from "zod";
+import { deletePublicationWithDocument } from "../services/documents/document.service.js";
 export const adminRouter = Router();
 adminRouter.use(authenticate, authorize("ADMIN"));
 adminRouter.get(
@@ -57,6 +58,19 @@ adminRouter.get(
             updatedAt: true,
           },
           orderBy: { createdAt: "desc" },
+        }),
+      );
+    }
+    if (req.params.entity === "publications") {
+      return res.json(
+        await prisma.publication.findMany({
+          take: 100,
+          orderBy: { createdAt: "desc" },
+          include: {
+            areas: true,
+            authors: { orderBy: { authorOrder: "asc" } },
+            document: { select: { status: true, pageCount: true } },
+          },
         }),
       );
     }
@@ -393,6 +407,10 @@ adminRouter.delete(
     const model = models[req.params.entity];
     if (!model || req.params.entity === "users")
       throw new HttpError(400, "Deletion is not permitted");
+    if (req.params.entity === "publications") {
+      await deletePublicationWithDocument(req.params.id);
+      return res.status(204).end();
+    }
     await model.delete({ where: { id: req.params.id } });
     res.status(204).end();
   }),

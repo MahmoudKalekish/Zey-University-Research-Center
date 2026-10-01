@@ -522,7 +522,7 @@ Versions below are derived from the project's package manifests and infrastructu
 | Cross-origin policy  | cors                  |                          `^2.8.5` | Explicit browser-origin control               |
 | Logging              | Morgan                |                         `^1.10.0` | Development/production HTTP logs              |
 | AI runtime           | Ollama                |   Optional external local process | Local text generation                         |
-| AI model             | `llama3.2:3b`         |                      Configurable | Default local generation model                |
+| AI model             | `qwen2.5:0.5b`        |                      Configurable | Default local generation model                |
 | Testing              | Vitest                |                          `^3.0.8` | Frontend/backend unit tests                   |
 | Quality              | ESLint                |                         `^9.22.0` | Static code-quality checks                    |
 | Database environment | Docker Compose        |                Local installation | Reproducible PostgreSQL service               |
@@ -1769,7 +1769,7 @@ These are development-only credentials and must be changed or removed in product
 ### Optional Ollama
 
 ```bash
-ollama pull llama3.2:3b
+ollama pull qwen2.5:0.5b
 ollama serve
 ```
 
@@ -1793,7 +1793,7 @@ npm run build
 | `PORT`           |         Yes         | `4000`                                                                        | API port                 |
 | `CLIENT_URL`     |         Yes         | `http://localhost:5173`                                                       | Production CORS origin   |
 | `OLLAMA_URL`     |      Optional       | `http://localhost:11434`                                                      | Local generation service |
-| `OLLAMA_MODEL`   |      Optional       | `llama3.2:3b`                                                                 | Local model name         |
+| `OLLAMA_MODEL`   |      Optional       | `qwen2.5:0.5b`                                                                | Local model name         |
 | `VITE_API_URL`   | Frontend deployment | `http://localhost:4000/api`                                                   | Browser API base URL     |
 
 ## Appendix C — Screenshot capture checklist
@@ -1887,3 +1887,15 @@ Suggested Markdown placeholder:
 | References                                            | Verified technical/academic starting bibliography     |
 
 This mapping preserves the useful organization of the supplied thesis while expanding the database, requirements, security, AI, testing, and validity sections needed for the substantially richer ZURC domain.
+
+## Publication document implementation addendum — 1 October 2026
+
+The platform now distinguishes publication metadata discovery from analysis of full uploaded research PDFs. Researchers create authored drafts, upload a validated PDF, wait for complete page extraction, preview analysis, and submit for administrator review. Only the administrator can publish; only PUBLISHED records appear publicly. Replacement invalidates old extracted chunks and summaries and returns published papers to review.
+
+Complete sequential extraction preserves page provenance. Local Qwen processes all text-bearing chunks through bounded evidence batches and hierarchical reduction. Structured summaries offer Short, Standard, and Detailed modes; conservative verified source passages prevent unsupported mapped summary statements. The overview balances objective, methodology, findings, conclusions, and explicit limitations rather than using only introductory text. Specific questions retrieve chunks from the selected document and return page evidence. Unsupported questions receive a cannot-determine response; unavailable local generation yields clearly labeled deterministic evidence. No cloud AI provider is used.
+
+The implementation follows focused SOLID boundaries: pure workflow policy, lifecycle service with a narrow repository, generation separated from cache/job persistence, injected local generator/storage/retrieval seams, thin document routes, typed frontend transport, and reusable polling. [The investigation](PROJECT_INVESTIGATION.md) records remaining legacy refactoring limitations.
+
+The seed now contains 34 fictional publications, including a 12-page original synthetic teaching PDF, a review submission, an editable draft, and an OCR-required example. Destructive seeding requires explicit permission through an environment flag outside dedicated test databases. Existing catalogue examples remain metadata-only. Synthetic fixtures and passing tests do not establish scholarly accuracy on real papers: small-model omissions, lexical retrieval limits, scanned-page OCR, and multi-process worker leases remain limitations.
+
+[Publication workflow](PUBLICATION_DOCUMENTS.md) is the current source for setup, API contracts, model/context budgets, lifecycle diagram, demonstration, and reproducible acceptance commands. [Database documentation](DATABASE.md) includes the document tables, enums, constraints, and ERD. Earlier numerical evaluation sections describe the pre-document baseline and should not be interpreted as verification of this extension; current run evidence is recorded in the implementation progress ledger.

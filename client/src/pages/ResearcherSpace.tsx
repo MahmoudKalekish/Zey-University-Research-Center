@@ -1,5 +1,5 @@
-import { Navigate } from "react-router-dom";
-import { BookOpen, FolderKanban, Save, PenLine, X } from "lucide-react";
+import { Navigate, Link } from "react-router-dom";
+import { BookOpen, FolderKanban, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../services/api";
@@ -11,18 +11,21 @@ import {
   PageHero,
 } from "../components/ui";
 import { ProjectCard, PublicationCard } from "../components/Cards";
+import type { Publication, Project, Researcher } from "../types";
 import { useToast } from "../components/Toast";
 
 export function ResearcherSpace() {
   const { user, loading } = useAuth();
   const toast = useToast();
-  const [profile, setProfile] = useState<any>();
+  const [profile, setProfile] = useState<
+    Researcher & {
+      projects: { project: Project }[];
+      publications: { publication: Publication }[];
+    }
+  >();
   const [profileLoading, setProfileLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [publicationSaving, setPublicationSaving] = useState(false);
-  const [publicationError, setPublicationError] = useState("");
-  const [editingPublication, setEditingPublication] = useState<any>();
   useEffect(() => {
     if (!user) return;
     setProfileLoading(true);
@@ -42,6 +45,7 @@ export function ResearcherSpace() {
     return <ErrorState text={error || "Researcher profile not found."} />;
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (!profile) return;
     setSaving(true);
     try {
       const updated = await api<any>("/researcher/me", {
@@ -62,40 +66,6 @@ export function ResearcherSpace() {
     }
   }
 
-  async function savePublication(e: React.FormEvent) {
-    e.preventDefault();
-    setPublicationSaving(true);
-    setPublicationError("");
-    try {
-      const updated = await api<any>(
-        `/researcher/publications/${editingPublication.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            title: editingPublication.title,
-            abstract: editingPublication.abstract,
-            venue: editingPublication.venue,
-            keywords: editingPublication.keywords,
-          }),
-        },
-      );
-      setProfile((current: any) => ({
-        ...current,
-        publications: current.publications.map((x: any) =>
-          x.publication.id === updated.id
-            ? { ...x, publication: { ...x.publication, ...updated } }
-            : x,
-        ),
-      }));
-      setEditingPublication(undefined);
-      toast.success("Publication updated successfully.");
-    } catch (e: any) {
-      setPublicationError(e.message);
-      toast.error(e.message);
-    } finally {
-      setPublicationSaving(false);
-    }
-  }
   return (
     <>
       <PageHero
@@ -178,121 +148,64 @@ export function ResearcherSpace() {
             <h2>
               <BookOpen /> My publications
             </h2>
-            <div className="publication-list">
-              {profile.publications.length ? (
-                profile.publications.map((x: any) => (
-                  <div className="researcher-pub" key={x.publication.id}>
-                    <PublicationCard x={{ ...x.publication, authors: [] }} />
-                    <button
-                      onClick={() => setEditingPublication(x.publication)}
-                    >
-                      <PenLine /> Edit
-                    </button>
+            <Link className="button small" to="/researcher/publications/new">
+              New publication draft
+            </Link>
+            {["DRAFT", "READY_FOR_REVIEW", "PUBLISHED", "ARCHIVED"].map(
+              (status) => (
+                <section key={status} className="workspace-publications">
+                  <h3>
+                    {status === "DRAFT"
+                      ? "Editable drafts"
+                      : status === "READY_FOR_REVIEW"
+                        ? "Under review"
+                        : status === "PUBLISHED"
+                          ? "Published work"
+                          : "Archived work"}
+                  </h3>
+                  <div className="publication-list">
+                    {profile.publications
+                      .filter(
+                        (entry) => entry.publication.workflowStatus === status,
+                      )
+                      .map(({ publication }) => (
+                        <article
+                          className="researcher-pub"
+                          key={publication.id}
+                        >
+                          {status === "PUBLISHED" ? (
+                            <PublicationCard
+                              x={{ ...publication, authors: [] }}
+                            />
+                          ) : (
+                            <div>
+                              <h3>{publication.title}</h3>
+                              <p>{publication.venue}</p>
+                            </div>
+                          )}
+                          <span className="status">
+                            {status.replaceAll("_", " ")}
+                          </span>
+                          <Link
+                            className="button small ghost"
+                            to={`/researcher/publications/${publication.id}`}
+                          >
+                            {status === "DRAFT"
+                              ? "Edit draft"
+                              : "View submission"}
+                          </Link>
+                        </article>
+                      ))}
+                    {!profile.publications.some(
+                      (entry) => entry.publication.workflowStatus === status,
+                    ) && <p>No publications in this stage.</p>}
                   </div>
-                ))
-              ) : (
-                <Empty text="You have no publications yet." />
-              )}
-            </div>
+                </section>
+              ),
+            )}
           </div>
         </div>
       </Container>
-      {editingPublication && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <form className="admin-editor" onSubmit={savePublication}>
-            <header>
-              <div>
-                <small>PUBLICATION</small>
-                <h2>Edit my publication</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingPublication(undefined)}
-                aria-label="Close dialog"
-              >
-                <X />
-              </button>
-            </header>
-            <div className="editor-fields">
-              {publicationError && (
-                <div className="form-error editor-error" role="alert">
-                  {publicationError}
-                </div>
-              )}
-              <label>
-                Title
-                <input
-                  required
-                  minLength={3}
-                  value={editingPublication.title}
-                  onChange={(e) =>
-                    setEditingPublication({
-                      ...editingPublication,
-                      title: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Journal / conference
-                <input
-                  required
-                  minLength={2}
-                  value={editingPublication.venue}
-                  onChange={(e) =>
-                    setEditingPublication({
-                      ...editingPublication,
-                      venue: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Abstract
-                <textarea
-                  required
-                  minLength={20}
-                  rows={6}
-                  value={editingPublication.abstract}
-                  onChange={(e) =>
-                    setEditingPublication({
-                      ...editingPublication,
-                      abstract: e.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Keywords (comma-separated)
-                <input
-                  value={editingPublication.keywords.join(", ")}
-                  onChange={(e) =>
-                    setEditingPublication({
-                      ...editingPublication,
-                      keywords: e.target.value
-                        .split(",")
-                        .map((x) => x.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                />
-              </label>
-            </div>
-            <footer>
-              <button
-                type="button"
-                className="button ghost"
-                onClick={() => setEditingPublication(undefined)}
-              >
-                Cancel
-              </button>
-              <button className="button" disabled={publicationSaving}>
-                {publicationSaving ? "Saving…" : "Save changes"}
-              </button>
-            </footer>
-          </form>
-        </div>
-      )}
     </>
   );
 }

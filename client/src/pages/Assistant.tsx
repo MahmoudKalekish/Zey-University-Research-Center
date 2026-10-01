@@ -1,3 +1,8 @@
+import { useSearchParams } from "react-router-dom";
+import { useFetch } from "../hooks/useFetch";
+import type { Publication } from "../types";
+import { DocumentQuestionPanel } from "../components/DocumentQuestionPanel";
+import { PublicationSummary } from "../components/PublicationSummary";
 import { useState, useRef, useEffect } from "react";
 import { Bot, Send, Sparkles, Database } from "lucide-react";
 import { api } from "../services/api";
@@ -10,6 +15,46 @@ type Msg = {
   mode?: string;
 };
 export function Assistant() {
+  const [parameters] = useSearchParams();
+  const publication = parameters.get("publication");
+  return publication ? (
+    <PublicationAssistant key={publication} slug={publication} />
+  ) : (
+    <CenterAssistant />
+  );
+}
+function PublicationAssistant({ slug }: { slug: string }) {
+  const { data, loading, error } = useFetch<Publication>(
+    `/publications/${encodeURIComponent(slug)}`,
+  );
+  return (
+    <>
+      <PageHero
+        eyebrow="Publication analysis"
+        title="Read and ask the research"
+        text="Summaries and answers use the selected research PDF stored in ZURC."
+      />
+      <Container>
+        {loading ? (
+          <p role="status">Loading publication…</p>
+        ) : error || !data ? (
+          <p role="alert">{error || "Publication not found."}</p>
+        ) : (
+          <>
+            <PublicationSummary
+              slug={data.slug}
+              available={Boolean(data.documentCapabilities?.canSummarize)}
+            />
+            {data.documentCapabilities?.canAsk && (
+              <DocumentQuestionPanel slug={data.slug} title={data.title} />
+            )}
+          </>
+        )}
+      </Container>
+    </>
+  );
+}
+function CenterAssistant() {
   const toast = useToast();
   const [messages, setMessages] = useState<Msg[]>([
     {
@@ -55,8 +100,9 @@ export function Assistant() {
           <Bot />
           <h2>AI grounded in our data</h2>
           <p>
-            The assistant searches the center's records first. It never relies
-            on fabricated research information.
+            The assistant searches the center's records first. Open a
+            publication to summarize its uploaded PDF or ask questions about its
+            full text.
           </p>
           <span>
             <Database /> Verifiable sources
@@ -87,6 +133,16 @@ export function Assistant() {
                         {s.title}
                       </a>
                     ))}
+                    {m.sources
+                      .filter((source) => source.type === "publication")
+                      .map((source) => (
+                        <a
+                          key={`ask-${source.id}`}
+                          href={`/assistant?publication=${encodeURIComponent(source.slug)}`}
+                        >
+                          Read and ask: {source.title}
+                        </a>
+                      ))}
                   </section>
                 )}
               </div>

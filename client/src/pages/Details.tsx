@@ -1,3 +1,6 @@
+import { PublicationSummary } from "../components/PublicationSummary";
+import { DocumentQuestionPanel } from "../components/DocumentQuestionPanel";
+import { pdfUrl } from "../services/publication-documents";
 import { useParams, Link } from "react-router-dom";
 import { Mail, ExternalLink, CalendarDays, Users } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
@@ -166,6 +169,26 @@ export function PublicationDetail() {
       </header>
       <Container className="detail-grid">
         <article>
+          <div className="document-actions">
+            {x.documentCapabilities?.canRead && (
+              <a
+                className="button"
+                href={pdfUrl(x.slug)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Read PDF
+              </a>
+            )}
+            {x.documentCapabilities?.canAsk && (
+              <Link
+                className="button ghost"
+                to={`/assistant?publication=${encodeURIComponent(x.slug)}`}
+              >
+                Ask this publication
+              </Link>
+            )}
+          </div>
           <h2>Abstract</h2>
           <p>{x.abstract}</p>
           <h2>Keywords</h2>
@@ -174,6 +197,13 @@ export function PublicationDetail() {
               <Badge key={k}>{k}</Badge>
             ))}
           </div>
+          <PublicationSummary
+            slug={x.slug}
+            available={Boolean(x.documentCapabilities?.canSummarize)}
+          />
+          {x.documentCapabilities?.canAsk && (
+            <DocumentQuestionPanel key={x.slug} slug={x.slug} title={x.title} />
+          )}
         </article>
         <aside>
           <h3>Publication details</h3>

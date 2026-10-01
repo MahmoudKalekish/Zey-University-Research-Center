@@ -159,6 +159,13 @@ export function Admin() {
                       </td>
                       <td>
                         {x.position || x.type || x.role || x.subject || "—"}
+                        {active === "publications" && (
+                          <small>
+                            {x.document
+                              ? `PDF ${x.document.status}${x.document.pageCount ? ` · ${x.document.pageCount} pages` : ""}`
+                              : "Metadata only"}
+                          </small>
+                        )}
                       </td>
                       <td>
                         <BadgeText x={x} />
@@ -198,7 +205,13 @@ export function Admin() {
         <AdminEditor
           entity={active}
           item={editing.id ? editing : undefined}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            if (active === "publications")
+              void api<any[]>("/admin/publications")
+                .then(setItems)
+                .catch((failure: Error) => setError(failure.message));
+          }}
           onSaved={(saved) => {
             setItems((old) =>
               editing.id
@@ -206,6 +219,10 @@ export function Admin() {
                 : [saved, ...old],
             );
             setEditing(null);
+            if (active === "publications")
+              void api<any[]>("/admin/publications")
+                .then(setItems)
+                .catch((failure: Error) => setError(failure.message));
           }}
         />
       )}
@@ -242,7 +259,7 @@ function BadgeText({ x }: { x: any }) {
     <span className="status">
       {x.active === false || x.published === false
         ? "Inactive"
-        : x.status || "Active"}
+        : x.workflowStatus?.replaceAll("_", " ") || x.status || "Active"}
     </span>
   );
 }

@@ -3,26 +3,56 @@ import {
   assertPublicationPublishable,
   buildPublicationTransitionData,
   canTransitionPublication,
+  assertResearcherCanEdit,
 } from "./publication-workflow.js";
 
 describe("publication workflow", () => {
   it("allows researchers to submit drafts but not publish them", () => {
-    expect(canTransitionPublication("DRAFT", "READY_FOR_REVIEW", "RESEARCHER")).toBe(true);
-    expect(canTransitionPublication("READY_FOR_REVIEW", "PUBLISHED", "RESEARCHER")).toBe(false);
+    expect(
+      canTransitionPublication("DRAFT", "READY_FOR_REVIEW", "RESEARCHER"),
+    ).toBe(true);
+    expect(
+      canTransitionPublication("READY_FOR_REVIEW", "PUBLISHED", "RESEARCHER"),
+    ).toBe(false);
   });
 
   it("reserves review, publication, return, and archive transitions for administrators", () => {
-    expect(canTransitionPublication("DRAFT", "READY_FOR_REVIEW", "ADMIN")).toBe(true);
-    expect(canTransitionPublication("READY_FOR_REVIEW", "PUBLISHED", "ADMIN")).toBe(true);
-    expect(canTransitionPublication("READY_FOR_REVIEW", "DRAFT", "ADMIN")).toBe(true);
-    expect(canTransitionPublication("PUBLISHED", "ARCHIVED", "ADMIN")).toBe(true);
+    expect(canTransitionPublication("DRAFT", "READY_FOR_REVIEW", "ADMIN")).toBe(
+      true,
+    );
+    expect(
+      canTransitionPublication("READY_FOR_REVIEW", "PUBLISHED", "ADMIN"),
+    ).toBe(true);
+    expect(canTransitionPublication("READY_FOR_REVIEW", "DRAFT", "ADMIN")).toBe(
+      true,
+    );
+    expect(canTransitionPublication("PUBLISHED", "ARCHIVED", "ADMIN")).toBe(
+      true,
+    );
     expect(canTransitionPublication("ARCHIVED", "DRAFT", "ADMIN")).toBe(true);
   });
 
   it("rejects invalid lifecycle jumps", () => {
     expect(canTransitionPublication("DRAFT", "PUBLISHED", "ADMIN")).toBe(false);
-    expect(canTransitionPublication("DRAFT", "ARCHIVED", "RESEARCHER")).toBe(false);
-    expect(canTransitionPublication("PUBLISHED", "READY_FOR_REVIEW", "ADMIN")).toBe(false);
+    expect(canTransitionPublication("DRAFT", "ARCHIVED", "RESEARCHER")).toBe(
+      false,
+    );
+    expect(
+      canTransitionPublication("PUBLISHED", "READY_FOR_REVIEW", "ADMIN"),
+    ).toBe(false);
+  });
+
+  it("allows researcher edits only while a publication is a draft", () => {
+    expect(() => assertResearcherCanEdit("DRAFT")).not.toThrow();
+    expect(() => assertResearcherCanEdit("READY_FOR_REVIEW")).toThrow(
+      /returned.*draft/i,
+    );
+    expect(() => assertResearcherCanEdit("PUBLISHED")).toThrow(
+      /returned.*draft/i,
+    );
+    expect(() => assertResearcherCanEdit("ARCHIVED")).toThrow(
+      /returned.*draft/i,
+    );
   });
 
   it("requires a ready document and review state before publication", () => {
@@ -33,10 +63,16 @@ describe("publication workflow", () => {
       }),
     ).not.toThrow();
     expect(() =>
-      assertPublicationPublishable({ workflowStatus: "DRAFT", document: { status: "READY" } }),
+      assertPublicationPublishable({
+        workflowStatus: "DRAFT",
+        document: { status: "READY" },
+      }),
     ).toThrow(/ready for review/i);
     expect(() =>
-      assertPublicationPublishable({ workflowStatus: "READY_FOR_REVIEW", document: null }),
+      assertPublicationPublishable({
+        workflowStatus: "READY_FOR_REVIEW",
+        document: null,
+      }),
     ).toThrow(/processed PDF/i);
     expect(() =>
       assertPublicationPublishable({
@@ -54,7 +90,9 @@ describe("publication workflow", () => {
       reviewedAt: null,
       reviewNote: null,
     });
-    expect(buildPublicationTransitionData("DRAFT", now, "Correct the author order.")).toEqual({
+    expect(
+      buildPublicationTransitionData("DRAFT", now, "Correct the author order."),
+    ).toEqual({
       workflowStatus: "DRAFT",
       submittedAt: null,
       publishedAt: null,

@@ -1,3 +1,4 @@
+import { ensureLocalEndpoint } from "./documents/ollama.service.js";
 import { prisma } from "../config/db.js";
 import { env } from "../config/env.js";
 import { globalSearch, searchTerms } from "./search.service.js";
@@ -24,7 +25,12 @@ async function saveExchange(
   await prisma.aiMessage.createMany({
     data: [
       { conversationId: conversation.id, role: "USER", content: question },
-      { conversationId: conversation.id, role: "ASSISTANT", content: answer, sources },
+      {
+        conversationId: conversation.id,
+        role: "ASSISTANT",
+        content: answer,
+        sources,
+      },
     ],
   });
 }
@@ -48,7 +54,7 @@ export async function askResearchAssistant(
     const [researchers, projects, publications, areas] = await Promise.all([
       prisma.researcher.count({ where: { active: true } }),
       prisma.project.count(),
-      prisma.publication.count(),
+      prisma.publication.count({ where: { workflowStatus: "PUBLISHED" } }),
       prisma.researchArea.count(),
     ]);
     const answer = `The center database currently contains ${researchers} active researchers, ${projects} projects, ${publications} publications, and ${areas} research areas.`;
@@ -58,7 +64,8 @@ export async function askResearchAssistant(
 
   const terms = searchTerms(question);
   let results = await globalSearch(question, 6);
-  const hasResults = () => Object.values(results).some((records) => records.length);
+  const hasResults = () =>
+    Object.values(results).some((records) => records.length);
 
   if (!hasResults()) {
     for (const term of terms) {
@@ -68,10 +75,19 @@ export async function askResearchAssistant(
   }
 
   if (!hasResults()) {
-    const asksPublications = /\b(papers?|publications?|articles?|thes(?:is|es)|datasets?)\b/i.test(question);
-    const asksResearchers = /\b(researchers?|authors?|professors?|people|experts?|team)\b/i.test(question);
-    const asksProjects = /\bprojects?|initiatives?|programmes?|programs?\b/i.test(question);
-    const asksAreas = /\b(areas?|fields?|domains?|topics?|themes?)\b/i.test(question);
+    const asksPublications =
+      /\b(papers?|publications?|articles?|thes(?:is|es)|datasets?)\b/i.test(
+        question,
+      );
+    const asksResearchers =
+      /\b(researchers?|authors?|professors?|people|experts?|team)\b/i.test(
+        question,
+      );
+    const asksProjects =
+      /\bprojects?|initiatives?|programmes?|programs?\b/i.test(question);
+    const asksAreas = /\b(areas?|fields?|domains?|topics?|themes?)\b/i.test(
+      question,
+    );
     const include = {
       publications: asksPublications,
       researchers: asksResearchers,
@@ -82,16 +98,36 @@ export async function askResearchAssistant(
       const [publications, researchers, projects, areas] = await Promise.all([
         include.publications
           ? prisma.publication.findMany({
+              where: { workflowStatus: "PUBLISHED" },
               take: 6,
               orderBy: { publicationDate: "desc" },
-              include: { authors: { include: { researcher: true }, orderBy: { authorOrder: "asc" } }, areas: { include: { area: true } }, project: true },
+              include: {
+                authors: {
+                  include: { researcher: true },
+                  orderBy: { authorOrder: "asc" },
+                },
+                areas: { include: { area: true } },
+                project: true,
+              },
             })
           : [],
         include.researchers
-          ? prisma.researcher.findMany({ take: 6, where: { active: true }, orderBy: { name: "asc" }, include: { areas: { include: { area: true } } } })
+          ? prisma.researcher.findMany({
+              take: 6,
+              where: { active: true },
+              orderBy: { name: "asc" },
+              include: { areas: { include: { area: true } } },
+            })
           : [],
         include.projects
-          ? prisma.project.findMany({ take: 6, orderBy: { startDate: "desc" }, include: { areas: { include: { area: true } }, researchers: { include: { researcher: true } } } })
+          ? prisma.project.findMany({
+              take: 6,
+              orderBy: { startDate: "desc" },
+              include: {
+                areas: { include: { area: true } },
+                researchers: { include: { researcher: true } },
+              },
+            })
           : [],
         include.areas
           ? prisma.researchArea.findMany({ take: 6, orderBy: { name: "asc" } })
@@ -171,21 +207,25 @@ export async function askResearchAssistant(
           objectives: a.objectives,
         })),
       });
-      const response = await fetch(`${env.OLLAMA_URL}/api/generate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: env.OLLAMA_MODEL,
-          stream: false,
-          options: {
-            temperature: 0.2,
-            num_ctx: 4096,
-            num_predict: 350,
-          },
-          prompt: `You are a university research center assistant. Answer in English using only the supplied CONTEXT. Never invent information. Cite the relevant record titles.\nQUESTION: ${question}\nCONTEXT: ${context}`,
-        }),
-        signal: AbortSignal.timeout(env.OLLAMA_TIMEOUT_MS),
-      });
+      const response = await fetch(
+        `${ensureLocalEndpoint(env.OLLAMA_URL)}/api/generate`,
+        {
+          method: "POST",
+          redirect: "error",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            model: env.OLLAMA_MODEL,
+            stream: false,
+            options: {
+              temperature: 0.2,
+              num_ctx: 4096,
+              num_predict: 350,
+            },
+            prompt: `You are a university research center assistant. Answer in English using only the supplied CONTEXT. Never invent information. Cite the relevant record titles.\nQUESTION: ${question}\nCONTEXT: ${context}`,
+          }),
+          signal: AbortSignal.timeout(env.OLLAMA_TIMEOUT_MS),
+        },
+      );
       if (response.ok) {
         const json = (await response.json()) as any;
         if (json.response) {
@@ -193,7 +233,9 @@ export async function askResearchAssistant(
           mode = "ollama";
         }
       } else if (env.NODE_ENV !== "test") {
-        console.warn(`Ollama returned HTTP ${response.status}; using database fallback.`);
+        console.warn(
+          `Ollama returned HTTP ${response.status}; using database fallback.`,
+        );
       }
     } catch (error) {
       if (env.NODE_ENV !== "test")

@@ -20,7 +20,7 @@ export async function home(_req: Request, res: Response) {
     people,
   ] = await Promise.all([
     prisma.researcher.count({ where: { active: true } }),
-    prisma.publication.count(),
+    prisma.publication.count({ where: { workflowStatus: "PUBLISHED" } }),
     prisma.project.count(),
     prisma.researchArea.count(),
     prisma.event.findMany({
@@ -39,6 +39,7 @@ export async function home(_req: Request, res: Response) {
       take: 3,
     }),
     prisma.publication.findMany({
+      where: { workflowStatus: "PUBLISHED" },
       include: {
         authors: { include: { researcher: true } },
         areas: { include: { area: true } },
@@ -66,7 +67,13 @@ export async function areas(_req: Request, res: Response) {
     await prisma.researchArea.findMany({
       include: {
         _count: {
-          select: { researchers: true, projects: true, publications: true },
+          select: {
+            researchers: true,
+            projects: true,
+            publications: {
+              where: { publication: { workflowStatus: "PUBLISHED" } },
+            },
+          },
         },
       },
       orderBy: { name: "asc" },
@@ -97,7 +104,14 @@ export async function researchers(req: Request, res: Response) {
       where,
       include: {
         areas: { include: { area: true } },
-        _count: { select: { publications: true, projects: true } },
+        _count: {
+          select: {
+            publications: {
+              where: { publication: { workflowStatus: "PUBLISHED" } },
+            },
+            projects: true,
+          },
+        },
       },
       skip,
       take: limit,
@@ -114,6 +128,7 @@ export async function researcher(req: Request, res: Response) {
       include: {
         areas: { include: { area: true } },
         publications: {
+          where: { publication: { workflowStatus: "PUBLISHED" } },
           include: { publication: true },
           orderBy: { authorOrder: "asc" },
         },
@@ -145,7 +160,9 @@ export async function projects(req: Request, res: Response) {
       include: {
         areas: { include: { area: true } },
         researchers: { include: { researcher: true } },
-        _count: { select: { publications: true } },
+        _count: {
+          select: { publications: { where: { workflowStatus: "PUBLISHED" } } },
+        },
       },
       skip,
       take: limit,
@@ -163,6 +180,7 @@ export async function project(req: Request, res: Response) {
         areas: { include: { area: true } },
         researchers: { include: { researcher: true } },
         publications: {
+          where: { workflowStatus: "PUBLISHED" },
           include: { authors: { include: { researcher: true } } },
         },
       },
@@ -178,6 +196,7 @@ export async function publications(req: Request, res: Response) {
     year = Number(req.query.year) || 0,
     sort = req.query.sort === "oldest" ? "asc" : "desc";
   const where: any = {
+    workflowStatus: "PUBLISHED",
     AND: [
       q
         ? {
@@ -221,19 +240,35 @@ export async function publications(req: Request, res: Response) {
   res.json({ items, meta: pageMeta(page, limit, total) });
 }
 export async function publication(req: Request, res: Response) {
-  res.json(
-    await prisma.publication.findUniqueOrThrow({
-      where: { slug: String(req.params.slug) },
-      include: {
-        authors: {
-          include: { researcher: true },
-          orderBy: { authorOrder: "asc" },
-        },
-        areas: { include: { area: true } },
-        project: true,
+  const record = await prisma.publication.findUniqueOrThrow({
+    where: { slug: String(req.params.slug), workflowStatus: "PUBLISHED" },
+    include: {
+      authors: {
+        include: { researcher: true },
+        orderBy: { authorOrder: "asc" },
       },
-    }),
-  );
+      areas: { include: { area: true } },
+      project: true,
+      document: {
+        select: {
+          id: true,
+          status: true,
+          pageCount: true,
+          originalName: true,
+          sizeBytes: true,
+        },
+      },
+    },
+  });
+  const ready = record.document?.status === "READY";
+  res.json({
+    ...record,
+    documentCapabilities: {
+      canRead: ready,
+      canSummarize: ready,
+      canAsk: ready,
+    },
+  });
 }
 export async function content(req: Request, res: Response) {
   const kind = req.params.kind;

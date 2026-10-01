@@ -9,7 +9,10 @@ import {
   type Researcher,
   type Project,
 } from "@prisma/client";
+import "dotenv/config";
 import bcrypt from "bcryptjs";
+import { seedPublicationDocuments } from "./fixtures/publication-documents.js";
+import { deleteStoredPdf } from "../src/services/documents/storage.service.js";
 const p = new PrismaClient();
 const slug = (s: string) =>
   s
@@ -19,6 +22,18 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 async function main() {
+  const databaseName = new URL(process.env.DATABASE_URL!).pathname.slice(1);
+  if (
+    !databaseName.startsWith("zurc_publication_test_") &&
+    process.env.ALLOW_DESTRUCTIVE_SEED !== "1"
+  ) {
+    throw new Error(
+      "Seeding deletes existing records. Use a dedicated zurc_publication_test_* database or explicitly set ALLOW_DESTRUCTIVE_SEED=1 for a disposable demo database.",
+    );
+  }
+  const documents = await p.publicationDocument.findMany({
+    select: { storageKey: true },
+  });
   await p.aiMessage.deleteMany();
   await p.aiConversation.deleteMany();
   await p.publicationAuthor.deleteMany();
@@ -26,6 +41,9 @@ async function main() {
   await p.projectResearcher.deleteMany();
   await p.projectArea.deleteMany();
   await p.publication.deleteMany();
+  await Promise.all(
+    documents.map((document) => deleteStoredPdf(document.storageKey)),
+  );
   await p.project.deleteMany();
   await p.researcherArea.deleteMany();
   await p.researcher.deleteMany();
@@ -58,7 +76,13 @@ async function main() {
   const additionalUsers = await Promise.all(
     [
       ["leila.nassar@zurc-demo.edu", "Leila", "Nassar", Role.RESEARCHER, true],
-      ["youssef.amari@zurc-demo.edu", "Youssef", "Amari", Role.RESEARCHER, true],
+      [
+        "youssef.amari@zurc-demo.edu",
+        "Youssef",
+        "Amari",
+        Role.RESEARCHER,
+        true,
+      ],
       ["sarah.khoury@zurc-demo.edu", "Sarah", "Khoury", Role.RESEARCHER, true],
       ["visitor@zurc-demo.edu", "Rana", "Salem", Role.VISITOR, true],
       ["student@zurc-demo.edu", "Elias", "Nader", Role.VISITOR, true],
@@ -111,13 +135,21 @@ async function main() {
       "Robotics and Autonomous Systems",
       "Create safe robots and autonomous systems for industry, agriculture, and public services.",
       "Bot",
-      ["Human-robot collaboration", "Autonomous navigation", "Embedded intelligence"],
+      [
+        "Human-robot collaboration",
+        "Autonomous navigation",
+        "Embedded intelligence",
+      ],
     ],
     [
       "Climate and Environmental Science",
       "Measure environmental change and design evidence-based adaptation strategies.",
       "CloudSun",
-      ["Climate resilience", "Environmental monitoring", "Sustainable development"],
+      [
+        "Climate resilience",
+        "Environmental monitoring",
+        "Sustainable development",
+      ],
     ],
     [
       "Data Science and Analytics",
@@ -684,14 +716,15 @@ async function main() {
     await p.publication.create({
       data: {
         title,
+        workflowStatus: "PUBLISHED",
+        publishedAt: new Date(),
         slug: slug(title),
         abstract,
         venue,
         keywords,
-        type:
-          title.startsWith("Doctoral Thesis")
-            ? PublicationType.THESIS
-            : publicationTypes[i % publicationTypes.length]!,
+        type: title.startsWith("Doctoral Thesis")
+          ? PublicationType.THESIS
+          : publicationTypes[i % publicationTypes.length]!,
         publicationDate: new Date(2021 + (i % 6), 11 - (i % 8), 12),
         doi: `10.5555/cru.${2024 + i}.${100 + i}`,
         externalUrl: "https://doi.org/10.5555/demo",
@@ -708,6 +741,7 @@ async function main() {
       },
     });
   }
+  await seedPublicationDocuments(p, researchers[0]!.id, areas[0]!.id);
   const future = new Date();
   future.setMonth(future.getMonth() + 2);
   await p.event.createMany({
@@ -989,4 +1023,9 @@ async function main() {
   console.log(`Researcher: ${researcherUser.email} / Research123!`);
   console.log("Visitor: visitor@zurc-demo.edu / Research123!");
 }
-main().finally(() => p.$disconnect());
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => p.$disconnect());
