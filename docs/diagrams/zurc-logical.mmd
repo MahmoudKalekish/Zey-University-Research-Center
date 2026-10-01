@@ -1,0 +1,224 @@
+erDiagram
+    User {
+        String id PK
+        String email UK
+        String passwordHash
+        String firstName
+        String lastName
+        Role role
+        Boolean active
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Researcher {
+        String id PK
+        String userId FK,UK "nullable"
+        String name
+        String slug UK
+        String biography
+        String position
+        String email UK
+        String photoUrl "nullable"
+        String affiliation
+        String orcid UK "nullable"
+        String linkedInUrl "nullable"
+        String scholarUrl "nullable"
+        String_array interests "list; SQL column nullable"
+        Boolean active
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ResearchArea {
+        String id PK
+        String name UK
+        String slug UK
+        String description
+        String icon
+        String imageUrl "nullable"
+        String_array objectives "list; SQL column nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ResearcherArea {
+        String researcherId PK,FK
+        String areaId PK,FK
+    }
+    Project {
+        String id PK
+        String title
+        String slug UK
+        String description
+        String abstract
+        String_array objectives "list; SQL column nullable"
+        DateTime startDate
+        DateTime endDate "nullable"
+        ProjectStatus status
+        String funding "nullable"
+        Boolean featured
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ProjectArea {
+        String projectId PK,FK
+        String areaId PK,FK
+    }
+    ProjectResearcher {
+        String projectId PK,FK
+        String researcherId PK,FK
+        String role "nullable"
+    }
+    Publication {
+        String id PK
+        String title
+        String slug UK
+        String abstract
+        DateTime publicationDate
+        String doi UK "nullable"
+        String venue
+        String_array keywords "list; SQL column nullable"
+        PublicationType type
+        String pdfUrl "nullable"
+        String externalUrl "nullable"
+        Boolean featured
+        String projectId FK "nullable"
+        PublicationWorkflowStatus workflowStatus
+        DateTime submittedAt "nullable"
+        DateTime publishedAt "nullable"
+        DateTime archivedAt "nullable"
+        DateTime reviewedAt "nullable"
+        String reviewNote "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    PublicationDocument {
+        String id PK
+        String publicationId FK,UK
+        String originalName
+        String storageKey UK
+        String mimeType
+        Int sizeBytes
+        String sha256
+        Int pageCount "nullable"
+        Int characterCount "nullable"
+        DocumentProcessingStatus status
+        String failureCode "nullable"
+        String failureMessage "nullable"
+        DateTime processedAt "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    DocumentChunk {
+        String id PK
+        String documentId FK
+        Int chunkIndex
+        Int pageStart
+        Int pageEnd
+        String sectionTitle "nullable"
+        String content
+        String normalizedText
+        Int tokenEstimate
+        DateTime createdAt
+    }
+    PublicationSummary {
+        String id PK
+        String documentId FK
+        SummaryDetailLevel detailLevel
+        SummaryProcessingStatus status
+        String model "nullable"
+        SummaryMode mode "nullable"
+        Json content "nullable"
+        Int_array sourcePages "list; SQL column nullable"
+        String failureCode "nullable"
+        String failureMessage "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    PublicationAuthor {
+        String publicationId PK,FK
+        String researcherId PK,FK
+        Int authorOrder
+        Boolean corresponding
+    }
+    PublicationArea {
+        String publicationId PK,FK
+        String areaId PK,FK
+    }
+    Event {
+        String id PK
+        String title
+        String slug UK
+        String description
+        DateTime startDate
+        DateTime endDate "nullable"
+        String location
+        String imageUrl "nullable"
+        String registrationUrl "nullable"
+        Boolean published
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    News {
+        String id PK
+        String title
+        String slug UK
+        String excerpt
+        String content
+        String imageUrl "nullable"
+        DateTime publishedAt "nullable"
+        Boolean published
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Resource {
+        String id PK
+        String title
+        String description
+        ResourceType type
+        String url
+        Boolean published
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ContactMessage {
+        String id PK
+        String name
+        String email
+        String subject
+        String message
+        MessageStatus status
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    AiConversation {
+        String id PK
+        String userId FK "nullable"
+        String sessionId
+        String title "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    AiMessage {
+        String id PK
+        String conversationId FK
+        AiRole role
+        String content
+        Json sources "nullable"
+        DateTime createdAt
+    }
+    User |o--o| Researcher : "user"
+    Researcher ||--o{ ResearcherArea : "researcher"
+    ResearchArea ||--o{ ResearcherArea : "area"
+    Project ||--o{ ProjectArea : "project"
+    ResearchArea ||--o{ ProjectArea : "area"
+    Project ||--o{ ProjectResearcher : "project"
+    Researcher ||--o{ ProjectResearcher : "researcher"
+    Project |o--o{ Publication : "project"
+    Publication ||--o| PublicationDocument : "publication"
+    PublicationDocument ||--o{ DocumentChunk : "document"
+    PublicationDocument ||--o{ PublicationSummary : "document"
+    Publication ||--o{ PublicationAuthor : "publication"
+    Researcher ||--o{ PublicationAuthor : "researcher"
+    Publication ||--o{ PublicationArea : "publication"
+    ResearchArea ||--o{ PublicationArea : "area"
+    User |o--o{ AiConversation : "user"
+    AiConversation ||--o{ AiMessage : "conversation"

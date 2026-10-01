@@ -1,0 +1,29 @@
+erDiagram
+    USER |o--o| RESEARCHER : "has linked profile"
+    USER |o--o{ AI_CONVERSATION : "owns optional session"
+    AI_CONVERSATION ||--o{ AI_MESSAGE : "contains"
+    RESEARCHER }o--o{ RESEARCH_AREA : "specializes in"
+    PROJECT }o--o{ RESEARCH_AREA : "belongs to"
+    RESEARCHER }o--o{ PROJECT : "participates with project role"
+    RESEARCHER }o--o{ PUBLICATION : "authors in order; corresponding flag"
+    PUBLICATION }o--o{ RESEARCH_AREA : "categorized by"
+    PROJECT |o--o{ PUBLICATION : "produces optional link"
+    PUBLICATION ||--o| PUBLICATION_DOCUMENT : "has current PDF"
+    PUBLICATION_DOCUMENT ||--o{ DOCUMENT_CHUNK : "contains page evidence"
+    PUBLICATION_DOCUMENT ||--o{ PUBLICATION_SUMMARY : "has detail-level analyses"
+    EVENT {
+        identifier id
+        description scientific_event
+    }
+    NEWS {
+        identifier id
+        description center_news
+    }
+    RESOURCE {
+        identifier id
+        description shared_resource
+    }
+    CONTACT_MESSAGE {
+        identifier id
+        description visitor_inquiry
+    }

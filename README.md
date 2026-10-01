@@ -82,3 +82,9 @@ npm run build
 Troubleshooting: Prisma `P1001` means PostgreSQL is unavailable; start Docker Desktop and run `docker compose up -d postgres`. If Ollama is offline, fallback mode is automatic and expected. The destructive seed requires an explicit flag outside dedicated test databases.
 
 Detailed documentation: [Master's thesis report](docs/ZURC_THESIS_REPORT.md), [Project](docs/PROJECT_DOCUMENTATION.md), [Architecture](docs/ARCHITECTURE.md), [Database](docs/DATABASE.md), [API](docs/API.md), and [AI](docs/AI.md).
+
+## Installation and university report guides
+
+- [Install on another PC: Docker Desktop, PostgreSQL, Ollama and application setup](docs/NEW_PC_SETUP.md)
+- [Project purpose, role permissions, demo accounts and complete workflow](docs/PROJECT_USER_GUIDE.md)
+- [Conceptual (MCD) and logical (MLD) data models with the complete field dictionary](docs/DATA_MODELS.md)
