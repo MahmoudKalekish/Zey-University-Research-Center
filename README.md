@@ -88,3 +88,5 @@ Detailed documentation: [Master's thesis report](docs/ZURC_THESIS_REPORT.md), [P
 - [Install on another PC: Docker Desktop, PostgreSQL, Ollama and application setup](docs/NEW_PC_SETUP.md)
 - [Project purpose, role permissions, demo accounts and complete workflow](docs/PROJECT_USER_GUIDE.md)
 - [Conceptual (MCD) and logical (MLD) data models with the complete field dictionary](docs/DATA_MODELS.md)
+
+Deployment: [Netlify frontend + Ubuntu backend/PostgreSQL/Ollama](docs/DEPLOYMENT.md).

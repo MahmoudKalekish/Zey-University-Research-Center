@@ -1,0 +1,14 @@
+.git
+.worktrees
+node_modules
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/coverage
+**/*.log
+**/*.tsbuildinfo
+server/storage/publications
+backups
+.codex
+.superpowers
