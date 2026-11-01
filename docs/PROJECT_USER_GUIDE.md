@@ -22,7 +22,7 @@ The demonstration data is fictional. The seeded twelve-page teaching paper permi
 | Publish / return / archive publications                                     | No                  | No                         | Yes                                                                       |
 | Manage users, areas, projects, events, news, resources and contact messages | No                  | No                         | Yes                                                                       |
 
-Public registration always creates a VISITOR. It does not grant researcher privileges. An administrator assigns the RESEARCHER role and links the appropriate researcher profile to that user. A user account and a researcher profile are separate records; some researchers can have public profiles without login accounts. Inactive accounts cannot authenticate.
+Public registration always creates a VISITOR. It does not grant researcher privileges. An administrator assigns the RESEARCHER role in Users. Saving automatically creates a linked researcher profile, or links an existing unclaimed profile with the same email. Existing linked profiles and their publications are preserved. The same provisioning applies when an administrator creates a researcher account. If an older researcher account is missing its profile, saving it again repairs the link. The signed-in user picks up role changes when returning to the tab or within 15 seconds while it is visible; logging out is unnecessary. New researchers can fill in their affiliation and biography in their workspace. A user account and a researcher profile are separate records; some researchers can have public profiles without login accounts. Inactive accounts cannot authenticate.
 
 ## Demonstration accounts
 

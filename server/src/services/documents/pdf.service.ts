@@ -3,7 +3,9 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const standardFontDataUrl = `${path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts")}${path.sep}`;
+// PDF.js requires a trailing forward slash, including on Windows. Node can
+// read Windows filesystem paths with forward slashes in its font-data factory.
+const standardFontDataUrl = `${path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts").replaceAll("\\", "/")}/`;
 
 export interface ExtractedPage {
   pageNumber: number;

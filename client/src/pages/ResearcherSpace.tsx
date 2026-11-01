@@ -27,7 +27,8 @@ export function ResearcherSpace() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.role === "VISITOR") return;
+    setError("");
     setProfileLoading(true);
     api<any>("/researcher/me")
       .then((result) => {
@@ -40,6 +41,7 @@ export function ResearcherSpace() {
   }, [user]);
   if (loading) return <Loading />;
   if (!user) return <Navigate to="/login" />;
+  if (user.role === "VISITOR") return <Navigate to="/" />;
   if (profileLoading) return <Loading />;
   if (error || !profile)
     return <ErrorState text={error || "Researcher profile not found."} />;

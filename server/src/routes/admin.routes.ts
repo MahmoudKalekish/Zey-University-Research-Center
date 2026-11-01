@@ -12,6 +12,7 @@ import {
 } from "../validation/schemas.js";
 import { z } from "zod";
 import { deletePublicationWithDocument } from "../services/documents/document.service.js";
+import { ensureResearcherProfile } from "../services/researcher-profile.service.js";
 export const adminRouter = Router();
 adminRouter.use(authenticate, authorize("ADMIN"));
 adminRouter.get(
@@ -84,11 +85,11 @@ adminRouter.post(
   asyncHandler(async (req: any, res: any) => {
     const d = userSchema.parse(req.body);
     if (!d.password) throw new HttpError(422, "Password is required");
-    res.status(201).json(
-      await prisma.user.create({
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
         data: {
           ...d,
-          passwordHash: await bcrypt.hash(d.password, 12),
+          passwordHash: await bcrypt.hash(d.password!, 12),
           password: undefined,
         } as any,
         select: {
@@ -99,8 +100,11 @@ adminRouter.post(
           role: true,
           active: true,
         },
-      }),
-    );
+      });
+      if (created.role === "RESEARCHER") await ensureResearcherProfile(tx, created);
+      return created;
+    });
+    res.status(201).json(user);
   }),
 );
 adminRouter.put(
@@ -234,8 +238,8 @@ adminRouter.put(
     const d = userSchema.partial().parse(req.body),
       data: any = { ...d, password: undefined };
     if (d.password) data.passwordHash = await bcrypt.hash(d.password, 12);
-    res.json(
-      await prisma.user.update({
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
         where: { id: req.params.id },
         data,
         select: {
@@ -246,8 +250,11 @@ adminRouter.put(
           role: true,
           active: true,
         },
-      }),
-    );
+      });
+      if (updated.role === "RESEARCHER") await ensureResearcherProfile(tx, updated);
+      return updated;
+    });
+    res.json(user);
   }),
 );
 adminRouter.put(

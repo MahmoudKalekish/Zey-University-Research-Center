@@ -1,9 +1,25 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import path from "node:path";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { extractPdfPages } from "./pdf.service.js";
 import { isTextUsable } from "./chunk.service.js";
+
+// Exercise Windows separators even when this suite runs on Linux. PDF.js
+// rejects font-directory paths that end in a backslash.
+vi.mock("node:path", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("node:path") & { default: typeof import("node:path") }
+  >();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      sep: "\\",
+      join: (...parts: string[]) => actual.default.join(...parts).replaceAll("/", "\\"),
+    },
+  };
+});
 
 function createPdf(pageTexts: string[]) {
   const objects: string[] = [];
@@ -44,10 +60,10 @@ describe("complete PDF extraction", () => {
   let corruptPath: string;
 
   beforeAll(async () => {
-    directory = await mkdtemp(path.join(tmpdir(), "zurc-pdf-extract-"));
-    paperPath = path.join(directory, "research-paper.pdf");
-    imageOnlyPath = path.join(directory, "image-only.pdf");
-    corruptPath = path.join(directory, "corrupt.pdf");
+    directory = await mkdtemp(join(tmpdir(), "zurc-pdf-extract-"));
+    paperPath = join(directory, "research-paper.pdf");
+    imageOnlyPath = join(directory, "image-only.pdf");
+    corruptPath = join(directory, "corrupt.pdf");
     await writeFile(
       paperPath,
       createPdf([
