@@ -1,11 +1,11 @@
 // A small, text-only formatting subset. Model output never becomes HTML or URLs.
 function inline(text: string) {
   return text
-    .split(/(\*\*[^*\n]+\*\*|\`[^\`\n]+\`)/g)
+    .split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g)
     .map((part, i) =>
       part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
         <strong key={i}>{part.slice(2, -2)}</strong>
-      ) : part.startsWith("\`") && part.endsWith("\`") && part.length > 2 ? (
+      ) : part.startsWith("`") && part.endsWith("`") && part.length > 2 ? (
         <code key={i}>{part.slice(1, -1)}</code>
       ) : (
         part

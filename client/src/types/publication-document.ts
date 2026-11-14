@@ -48,6 +48,10 @@ export interface FallbackSummary {
   evidence: { section: string; text: string; pages: number[] }[];
   sourcePages: number[];
 }
+export interface ResumeOverview {
+  kind: "RESUME";
+  evidence: { section: string; text: string; pages: number[] }[];
+}
 export interface SummaryStatus {
   id: string;
   documentId: string;
@@ -55,7 +59,7 @@ export interface SummaryStatus {
   status: ProcessingStatus;
   mode: AnalysisMode | null;
   model: string | null;
-  content: StructuredSummary | FallbackSummary | null;
+  content: StructuredSummary | FallbackSummary | ResumeOverview | null;
   failureCode: string | null;
   failureMessage: string | null;
   updatedAt: string;

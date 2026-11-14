@@ -276,6 +276,19 @@ export function AdminEditor({
             <X />
           </button>
         </header>
+        {metadataLocked && (
+          <PublicationProjectLink
+            id={item.id}
+            projectId={form.projectId ?? null}
+            projects={refs.projects}
+            onSaved={(projectId) =>
+              setForm((current: Record<string, unknown>) => ({
+                ...current,
+                projectId,
+              }))
+            }
+          />
+        )}
         <form onSubmit={submit}>
           {entity === "publications" && (
             <h2 className="editor-section-title">Metadata and relationships</h2>
@@ -290,127 +303,131 @@ export function AdminEditor({
                 {error}
               </div>
             )}
-            {fields.map((f) => (
-              <label key={f.key}>
-                {f.label}
-                {f.type === "textarea" || f.type === "lines" ? (
-                  <textarea
-                    rows={f.type === "lines" ? 3 : 5}
-                    required={f.required}
-                    readOnly={f.readOnly}
-                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                    value={
-                      Array.isArray(form[f.key])
-                        ? form[f.key].join("\n")
-                        : form[f.key] || ""
-                    }
-                    onChange={(e) =>
-                      setForm({ ...form, [f.key]: e.target.value })
-                    }
-                  />
-                ) : f.type === "select" ? (
-                  <select
-                    value={form[f.key] || f.options?.[0]}
-                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                    onChange={(e) =>
-                      setForm({ ...form, [f.key]: e.target.value })
-                    }
-                  >
-                    {(f.key === "role" && item?.role === "RESEARCHER"
-                      ? ["RESEARCHER", ...(f.options ?? [])]
-                      : (f.options ?? [])
-                    ).map((o) => (
-                      <option key={o} value={o}>
-                        {f.key === "active"
-                          ? o === "true"
-                            ? "Active"
-                            : "Inactive"
-                          : o
-                              .toLowerCase()
-                              .replaceAll("_", " ")
-                              .replace(/^./, (letter) => letter.toUpperCase())}
-                      </option>
-                    ))}
-                  </select>
-                ) : f.type === "project" ? (
-                  <select
-                    value={form[f.key] || ""}
-                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                    onChange={(e) =>
-                      setForm({ ...form, [f.key]: e.target.value })
-                    }
-                  >
-                    <option value="">No project</option>
-                    {(refs.projects || []).map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {x.title}
-                      </option>
-                    ))}
-                  </select>
-                ) : ["areas", "researchers"].includes(f.type || "") ? (
-                  <>
-                    <select
-                      multiple
-                      size={4}
+            {fields
+              .filter((f) => !metadataLocked || f.key !== "projectId")
+              .map((f) => (
+                <label key={f.key}>
+                  {f.label}
+                  {f.type === "textarea" || f.type === "lines" ? (
+                    <textarea
+                      rows={f.type === "lines" ? 3 : 5}
+                      required={f.required}
+                      readOnly={f.readOnly}
                       aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                      value={Array.isArray(form[f.key]) ? form[f.key] : []}
+                      value={
+                        Array.isArray(form[f.key])
+                          ? form[f.key].join("\n")
+                          : form[f.key] || ""
+                      }
                       onChange={(e) =>
-                        setForm({
-                          ...form,
-                          [f.key]: Array.from(
-                            e.target.selectedOptions,
-                            (x) => x.value,
-                          ),
-                        })
+                        setForm({ ...form, [f.key]: e.target.value })
+                      }
+                    />
+                  ) : f.type === "select" ? (
+                    <select
+                      value={form[f.key] || f.options?.[0]}
+                      aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                      onChange={(e) =>
+                        setForm({ ...form, [f.key]: e.target.value })
                       }
                     >
-                      {(refs[f.type!] || []).map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.name || x.title}
+                      {(f.key === "role" && item?.role === "RESEARCHER"
+                        ? ["RESEARCHER", ...(f.options ?? [])]
+                        : (f.options ?? [])
+                      ).map((o) => (
+                        <option key={o} value={o}>
+                          {f.key === "active"
+                            ? o === "true"
+                              ? "Active"
+                              : "Inactive"
+                            : o
+                                .toLowerCase()
+                                .replaceAll("_", " ")
+                                .replace(/^./, (letter) =>
+                                  letter.toUpperCase(),
+                                )}
                         </option>
                       ))}
                     </select>
+                  ) : f.type === "project" ? (
+                    <select
+                      value={form[f.key] || ""}
+                      aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                      onChange={(e) =>
+                        setForm({ ...form, [f.key]: e.target.value })
+                      }
+                    >
+                      <option value="">No project</option>
+                      {(refs.projects || []).map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.title}
+                        </option>
+                      ))}
+                    </select>
+                  ) : ["areas", "researchers"].includes(f.type || "") ? (
+                    <>
+                      <select
+                        multiple
+                        size={4}
+                        aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                        value={Array.isArray(form[f.key]) ? form[f.key] : []}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            [f.key]: Array.from(
+                              e.target.selectedOptions,
+                              (x) => x.value,
+                            ),
+                          })
+                        }
+                      >
+                        {(refs[f.type!] || []).map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.name || x.title}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="field-hint">
+                        Hold Ctrl or Cmd to select more than one.
+                      </span>
+                    </>
+                  ) : f.type === "password" ? (
+                    <PasswordInput
+                      autoComplete="new-password"
+                      aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                      value={form[f.key] || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, [f.key]: e.target.value })
+                      }
+                    />
+                  ) : (
+                    <input
+                      type={f.type || "text"}
+                      required={f.required}
+                      readOnly={f.readOnly}
+                      aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                      value={
+                        Array.isArray(form[f.key])
+                          ? form[f.key].join("\n")
+                          : (f.type === "date"
+                              ? form[f.key]?.slice?.(0, 10)
+                              : form[f.key]) || ""
+                      }
+                      onChange={(e) =>
+                        setForm({ ...form, [f.key]: e.target.value })
+                      }
+                    />
+                  )}
+                  {fieldErrors[f.key]?.[0] && (
+                    <span className="field-error">{fieldErrors[f.key][0]}</span>
+                  )}
+                  {f.type === "password" && (
                     <span className="field-hint">
-                      Hold Ctrl or Cmd to select more than one.
+                      Use 8+ characters with an uppercase letter and a number.
                     </span>
-                  </>
-                ) : f.type === "password" ? (
-                  <PasswordInput
-                    autoComplete="new-password"
-                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                    value={form[f.key] || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, [f.key]: e.target.value })
-                    }
-                  />
-                ) : (
-                  <input
-                    type={f.type || "text"}
-                    required={f.required}
-                    readOnly={f.readOnly}
-                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
-                    value={
-                      Array.isArray(form[f.key])
-                        ? form[f.key].join("\n")
-                        : (f.type === "date"
-                            ? form[f.key]?.slice?.(0, 10)
-                            : form[f.key]) || ""
-                    }
-                    onChange={(e) =>
-                      setForm({ ...form, [f.key]: e.target.value })
-                    }
-                  />
-                )}
-                {fieldErrors[f.key]?.[0] && (
-                  <span className="field-error">{fieldErrors[f.key][0]}</span>
-                )}
-                {f.type === "password" && (
-                  <span className="field-hint">
-                    Use 8+ characters with an uppercase letter and a number.
-                  </span>
-                )}
-              </label>
-            ))}
+                  )}
+                </label>
+              ))}
           </fieldset>
           <footer>
             {entity === "messages" && item?.email && (
@@ -449,5 +466,90 @@ export function AdminEditor({
         )}
       </div>
     </div>
+  );
+}
+
+function PublicationProjectLink({
+  id,
+  projectId,
+  projects,
+  onSaved,
+}: {
+  id: string;
+  projectId: string | null;
+  projects?: { id: string; title: string }[];
+  onSaved: (projectId: string | null) => void;
+}) {
+  const [selected, setSelected] = useState(projectId ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const toast = useToast();
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api<{ projectId: string | null }>(
+        `/admin/publications/${encodeURIComponent(id)}/project`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ projectId: selected || null }),
+        },
+      );
+      onSaved(result.projectId);
+      toast.success(
+        result.projectId ? "Project link saved." : "Project link removed.",
+      );
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Could not save the project link.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form onSubmit={save}>
+      <h2 className="editor-section-title">Link to project</h2>
+      <div className="editor-fields">
+        <label>
+          Project
+          <select
+            disabled={busy || !projects}
+            value={selected}
+            onChange={(event) => setSelected(event.target.value)}
+          >
+            <option value="">No project</option>
+            {projectId && !projects?.some(({ id }) => id === projectId) && (
+              <option value={projectId}>Current project</option>
+            )}
+            {projects?.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div>
+          <p className="field-hint">
+            Change the project link without changing the publication’s review
+            status.
+          </p>
+          <button
+            className="button small"
+            disabled={busy || !projects || (selected || null) === projectId}
+          >
+            {busy ? "Saving…" : "Save project link"}
+          </button>
+          {error && (
+            <p role="alert" className="field-error">
+              {error}
+            </p>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }

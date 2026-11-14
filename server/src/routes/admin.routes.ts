@@ -112,6 +112,30 @@ adminRouter.post(
   }),
 );
 adminRouter.put(
+  "/publications/:id/project",
+  asyncHandler(async (req, res) => {
+    const { projectId } = z
+      .object({ projectId: z.string().trim().min(1).max(128).nullable() })
+      .strict()
+      .parse(req.body);
+    if (
+      projectId &&
+      !(await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { id: true },
+      }))
+    ) {
+      throw new HttpError(404, "Project not found.");
+    }
+    const result = await prisma.publication.update({
+      where: { id: String(req.params.id) },
+      data: { projectId },
+      select: { id: true, projectId: true },
+    });
+    res.json(result);
+  }),
+);
+adminRouter.put(
   "/publications/:id",
   asyncHandler(async (req: any, res: any) => {
     const { areaIds, authorIds, ...data } = publicationSchema

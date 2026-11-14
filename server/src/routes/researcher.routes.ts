@@ -97,8 +97,8 @@ researcherRouter.put(
     assertResearcherCanEdit(publication.workflowStatus);
     const { areaIds, ...data } = z
       .object({
-        title: z.string().min(3).optional(),
-        abstract: z.string().min(20).optional(),
+        title: z.string().trim().min(3).optional(),
+        abstract: z.string().trim().min(20).optional(),
         venue: z.string().min(2).optional(),
         keywords: z.array(z.string()).optional(),
         areaIds: z.array(z.string()).min(1).max(8).optional(),

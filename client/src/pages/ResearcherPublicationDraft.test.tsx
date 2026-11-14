@@ -11,8 +11,8 @@ vi.mock("../auth/AuthContext", () => {
   const user = { role: "RESEARCHER", firstName: "Karim" };
   return { useAuth: () => ({ user, loading: false }) };
 });
-vi.mock("../components/PublicationDocumentPanel", () => ({
-  PublicationDocumentPanel: () => <div>Author document management</div>,
+vi.mock("../components/Toast", () => ({
+  useToast: () => ({ success: vi.fn() }),
 }));
 const paper = {
   id: "paper",
@@ -29,6 +29,10 @@ function show(path = "/researcher/publications/new") {
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
+        <Route
+          path="/researcher"
+          element={<h1>Researcher workspace home</h1>}
+        />
         <Route
           path="/researcher/publications/new"
           element={<ResearcherPublicationDraft />}
@@ -55,7 +59,7 @@ describe("researcher draft editor", () => {
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "New research" },
     });
-    fireEvent.change(screen.getByLabelText("Abstract"), {
+    fireEvent.change(screen.getByLabelText(/Short description/), {
       target: { value: "This study tests a campus sensing method." },
     });
     fireEvent.change(
@@ -82,8 +86,50 @@ describe("researcher draft editor", () => {
     expect(body.areaIds).toEqual(["area"]);
     expect(body.authorIds).toBeUndefined();
     expect(body.workflowStatus).toBeUndefined();
-    expect(await screen.findByText("Author document management")).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "Document and review" }),
+    ).toBeTruthy();
   });
+  it.each([true, false])(
+    "returns to the workspace only on successful submission (%s)",
+    async (success) => {
+      vi.mocked(api).mockImplementation(async (path) => {
+        if (path === "/areas") return [];
+        if (path.endsWith("/document/status"))
+          return {
+            status: "READY",
+            originalName: "paper.pdf",
+            pageCount: 2,
+            sizeBytes: 1024,
+          };
+        if (path.endsWith("/submit")) {
+          if (!success) throw new ApiError("Please enter a keyword.", 422);
+          return paper;
+        }
+        return { ...paper, workflowStatus: "DRAFT" };
+      });
+      show("/researcher/publications/paper");
+      await screen.findByText("paper.pdf");
+      fireEvent.click(screen.getByRole("checkbox"));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Submit for review" }),
+      );
+      if (success) {
+        expect(
+          await screen.findByRole("heading", {
+            name: "Researcher workspace home",
+          }),
+        ).toBeTruthy();
+      } else {
+        expect((await screen.findByRole("alert")).textContent).toContain(
+          "Please enter a keyword.",
+        );
+        expect(
+          screen.queryByRole("heading", { name: "Researcher workspace home" }),
+        ).toBeNull();
+      }
+    },
+  );
   it("locks metadata after submission", async () => {
     vi.mocked(api).mockImplementation(async (path) =>
       path === "/areas" ? [] : paper,

@@ -65,21 +65,21 @@ export function createPublicationLifecycleService(
         if (!confirmed)
           throw new HttpError(422, "Confirm the publication checklist first.");
         if (
-          publication.title.trim().length < 8 ||
-          publication.abstract.trim().length < 80
+          publication.title.trim().length < 3 ||
+          publication.abstract.trim().length < 20
         )
           throw new HttpError(
             422,
-            "Enter a descriptive title (8 characters) and an abstract of at least 80 characters covering the objective, approach, and findings.",
+            "Add a title (at least 3 characters) and a short description (at least 20 characters).",
           );
         if (
           new Set(
             publication.keywords
               .map((s) => s.trim().toLowerCase())
               .filter(Boolean),
-          ).size < 3
+          ).size < 1
         )
-          throw new HttpError(422, "Enter at least three distinct keywords.");
+          throw new HttpError(422, "Enter at least one keyword.");
         if (!publication._count.areas || !publication._count.authors)
           throw new HttpError(
             422,

@@ -51,6 +51,9 @@ export const documentQuestionSchema = z.object({
 export const summaryRequestSchema = z.object({
   detailLevel: z.enum(["SHORT", "STANDARD", "DETAILED"]).default("STANDARD"),
 });
+export const summaryGenerationSchema = summaryRequestSchema.extend({
+  refresh: z.boolean().optional(),
+});
 export const publicationConfirmationSchema = z.object({
   confirmed: z.literal(true),
 });

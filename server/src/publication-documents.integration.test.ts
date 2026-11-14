@@ -38,6 +38,7 @@ describe.skipIf(!enabled)(
     let adminToken: string;
     let visitorToken: string;
     let areaId: string;
+    let projectId: string;
     let publicationId: string;
     let slug: string;
     const previousStorage = env.PUBLICATION_STORAGE_DIR;
@@ -115,6 +116,8 @@ describe.skipIf(!enabled)(
       });
       await prisma.researcher.deleteMany({ where: { userId: { in: tokens } } });
       await prisma.user.deleteMany({ where: { id: { in: tokens } } });
+      if (projectId)
+        await prisma.project.deleteMany({ where: { id: projectId } });
       await prisma.researchArea.deleteMany({ where: { id: areaId } });
       await prisma.$disconnect();
       env.PUBLICATION_STORAGE_DIR = previousStorage;
@@ -357,6 +360,56 @@ describe.skipIf(!enabled)(
           .send(body)
           .expect(403);
       }
+      const project = await prisma.project.create({
+        data: {
+          title: "Project link test",
+          slug: `project-link-${suffix}`,
+          description: "Test project",
+          abstract: "Test project abstract",
+          startDate: new Date(),
+          objectives: [],
+        },
+      });
+      projectId = project.id;
+      const projectLink = `/api/admin/publications/${publicationId}/project`;
+      await request(app)
+        .put(projectLink)
+        .auth(authorToken, { type: "bearer" })
+        .send({ projectId })
+        .expect(403);
+      await request(app)
+        .put(projectLink)
+        .auth(adminToken, { type: "bearer" })
+        .send({ projectId, title: "Unexpected change" })
+        .expect(422);
+      await request(app)
+        .put(projectLink)
+        .auth(adminToken, { type: "bearer" })
+        .send({ projectId: "missing-project" })
+        .expect(404);
+      await request(app)
+        .put(projectLink)
+        .auth(adminToken, { type: "bearer" })
+        .send({ projectId })
+        .expect(200);
+      const linkedProject = await request(app)
+        .get(`/api/projects/${project.slug}`)
+        .expect(200);
+      expect(linkedProject.body.publications).toEqual([
+        expect.objectContaining({
+          id: publicationId,
+          workflowStatus: "PUBLISHED",
+        }),
+      ]);
+      await request(app)
+        .put(projectLink)
+        .auth(adminToken, { type: "bearer" })
+        .send({ projectId: null })
+        .expect(200);
+      const unlinkedProject = await request(app)
+        .get(`/api/projects/${project.slug}`)
+        .expect(200);
+      expect(unlinkedProject.body.publications).toEqual([]);
       const publicDetail = await request(app)
         .get(`/api/publications/${slug}`)
         .expect(200);

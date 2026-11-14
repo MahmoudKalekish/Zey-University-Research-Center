@@ -1,3 +1,4 @@
+import { isResume, buildResumeOverview } from "./document-overview.js";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { env } from "../../config/env.js";
@@ -43,6 +44,7 @@ interface SummaryRepository {
   queue: (
     documentId: string,
     detailLevel: SummaryDetail,
+    refresh?: boolean,
   ) => Promise<SummaryStatusRecord>;
   claim: (summaryId: string) => Promise<ClaimedSummary | null>;
   ready: (
@@ -78,7 +80,7 @@ const summarySelect = {
 } as const;
 
 const summaryRepository: SummaryRepository = {
-  async queue(documentId, detailLevel) {
+  async queue(documentId, detailLevel, refresh) {
     const document = await prisma.publicationDocument.findUnique({
       where: { id: documentId },
       select: { status: true },
@@ -96,14 +98,18 @@ const summaryRepository: SummaryRepository = {
     if (
       existing &&
       existing.status !== "FAILED" &&
-      existing.mode !== "FALLBACK"
+      existing.mode !== "FALLBACK" &&
+      !(refresh && existing.status === "READY")
     )
       return existing as SummaryStatusRecord;
     if (existing) {
       await prisma.publicationSummary.updateMany({
         where: {
           id: existing.id,
-          OR: [{ status: "FAILED" }, { status: "READY", mode: "FALLBACK" }],
+          OR: [
+            { status: "FAILED" },
+            { status: "READY", ...(refresh ? {} : { mode: "FALLBACK" }) },
+          ],
         },
         data: {
           status: "PENDING",
@@ -208,15 +214,26 @@ export function createSummaryJobService({
   summarize: typeof summarizeCompleteDocument;
 }) {
   return {
-    async queueSummary(documentId: string, detailLevel: SummaryDetail) {
+    async queueSummary(
+      documentId: string,
+      detailLevel: SummaryDetail,
+      refresh = false,
+    ) {
       return toSummaryStatusDto(
-        await repository.queue(documentId, detailLevel),
+        await repository.queue(documentId, detailLevel, refresh),
       );
     },
     async processSummary(summaryId: string) {
       const job = await repository.claim(summaryId);
       if (!job) return false;
       try {
+        if (isResume(job.chunks)) {
+          const overview = buildResumeOverview(job.chunks, job.detailLevel);
+          if (overview.evidence.length) {
+            await repository.ready(job.id, overview, "FALLBACK", null);
+            return true;
+          }
+        }
         const content = await summarize(
           job.publication,
           job.chunks,

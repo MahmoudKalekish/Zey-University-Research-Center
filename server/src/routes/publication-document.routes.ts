@@ -22,6 +22,7 @@ import {
   publicationReturnSchema,
   researcherPublicationDraftSchema,
   summaryRequestSchema,
+  summaryGenerationSchema,
 } from "../validation/schemas.js";
 
 type Scope = "public" | "admin" | "researcher";
@@ -144,7 +145,9 @@ export function createPublicationDocumentRouter(
       noStore,
       requireDocumentRole,
       asyncHandler(async (request, response) => {
-        const { detailLevel } = summaryRequestSchema.parse(request.body);
+        const { detailLevel, refresh } = summaryGenerationSchema.parse(
+          request.body,
+        );
         const publication = await dependencies.resolvePublic(
           String(request.params.slug),
           request.user?.id,
@@ -152,6 +155,7 @@ export function createPublicationDocumentRouter(
         const summary = await dependencies.queueSummary(
           publication.documentId,
           detailLevel,
+          refresh,
         );
         response.status(summary.status === "READY" ? 200 : 202).json(summary);
       }),

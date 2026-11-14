@@ -39,7 +39,9 @@ function SummaryLevel({
     setBusy(true);
     setError("");
     try {
-      job.setData(await requestSummary(slug, level));
+      job.setData(
+        await requestSummary(slug, level, job.data?.status === "READY"),
+      );
       job.refresh();
     } catch (failure) {
       setError(
@@ -50,6 +52,9 @@ function SummaryLevel({
     }
   }
   const content = job.data?.content;
+  const isResume = Boolean(
+    content && "kind" in content && content.kind === "RESUME",
+  );
   return (
     <div aria-live="polite">
       {(job.error || error) && (
@@ -68,26 +73,41 @@ function SummaryLevel({
           {job.data.failureMessage || "Summary generation failed."}
         </p>
       )}
-      {!job.loading &&
-        (!job.data ||
-          job.data.status === "FAILED" ||
-          job.data.mode === "FALLBACK") && (
-          <button className="button" onClick={generate} disabled={busy}>
-            {busy
-              ? "Queuing…"
-              : job.data
-                ? "Retry summary"
-                : "Generate summary"}
-          </button>
-        )}
+      {!job.loading && !isProcessing(job.data?.status) && !isResume && (
+        <button className="button" onClick={generate} disabled={busy}>
+          {busy
+            ? "Queuing…"
+            : !job.data
+              ? "Generate summary"
+              : job.data.status === "READY" && job.data.mode === "OLLAMA"
+                ? "Refresh summary"
+                : "Retry summary"}
+        </button>
+      )}
       {job.data?.status === "READY" && content && (
         <>
           <p className="status">
-            {job.data.mode === "OLLAMA"
-              ? "Local Qwen · page-supported summary"
-              : "Deterministic document evidence · fallback"}
+            {isResume
+              ? "CV overview · drawn from the PDF"
+              : job.data.mode === "OLLAMA"
+                ? "Page-supported summary"
+                : "Document passages · AI summary unavailable"}
           </p>
-          {"notice" in content ? (
+          {"kind" in content ? (
+            <>
+              <p>
+                Key details organized by section. Open a cited page to check the
+                original.
+              </p>
+              {content.evidence.map((item) => (
+                <section key={item.section} className="summary-section">
+                  <h3>{item.section}</h3>
+                  <AnswerText text={item.text} />
+                  <PageEvidence slug={slug} pages={item.pages} />
+                </section>
+              ))}
+            </>
+          ) : "notice" in content ? (
             <>
               <p>{content.notice}</p>
               <h3>Publication metadata</h3>
@@ -109,7 +129,10 @@ function SummaryLevel({
               {sections.map(([key, label]) => {
                 const section = (content as StructuredSummary)[key];
                 return (
-                  section && (
+                  section &&
+                  section.pages.length > 0 &&
+                  section.text.trim().toLowerCase() !==
+                    "not stated in the document" && (
                     <section className="summary-section" key={key}>
                       <h3>{label}</h3>
                       <AnswerText text={section.text} />
@@ -122,16 +145,18 @@ function SummaryLevel({
                   )
                 );
               })}
-              <section className="summary-section">
-                <h3>Keywords</h3>
-                <div className="tags">
-                  {content.keywords.map((keyword) => (
-                    <span className="badge" key={keyword}>
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </section>
+              {content.keywords.length > 0 && (
+                <section className="summary-section">
+                  <h3>Keywords</h3>
+                  <div className="tags">
+                    {content.keywords.map((keyword) => (
+                      <span className="badge" key={keyword}>
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
         </>
@@ -163,8 +188,7 @@ export function PublicationSummary({
     <section className="document-card publication-summary">
       <h2>Publication summary</h2>
       <p>
-        Read the uploaded paper in brief or explore its methods and findings.
-        References open the supporting PDF pages.
+        Get the key points from this PDF. Open a cited page to check the source.
       </p>
       <SummaryLevel
         key={`${slug}-${level}`}

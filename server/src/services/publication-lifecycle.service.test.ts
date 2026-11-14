@@ -57,7 +57,7 @@ describe("publication lifecycle orchestration", () => {
     ).rejects.toMatchObject({ status: 422 });
     repository.find.mockResolvedValueOnce({
       ...(await repository.find()),
-      keywords: ["same", "Same", "SAME"],
+      keywords: ["", "  "],
     });
     await expect(
       service.transition(
@@ -70,6 +70,25 @@ describe("publication lifecycle orchestration", () => {
       ),
     ).rejects.toMatchObject({ status: 422 });
     expect(repository.transition).not.toHaveBeenCalled();
+  });
+  it("accepts a short description and one keyword when a draft is ready", async () => {
+    const { service, repository } = setup();
+    repository.find.mockResolvedValueOnce({
+      ...(await repository.find()),
+      title: "My CV",
+      abstract: "A brief work and skills overview.",
+      keywords: ["experience"],
+    });
+    await expect(
+      service.transition(
+        "paper",
+        "READY_FOR_REVIEW",
+        "author",
+        "RESEARCHER",
+        undefined,
+        true,
+      ),
+    ).resolves.toMatchObject({ workflowStatus: "READY_FOR_REVIEW" });
   });
   it("prevents researchers publishing and rejects unknown records", async () => {
     const { service, repository } = setup("READY_FOR_REVIEW");

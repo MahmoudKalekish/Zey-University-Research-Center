@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { LocalGenerationError } from "./ollama.service.js";
+import type { SummaryChunk } from "./summary-engine.js";
 import {
   createSummaryEngine,
   buildSummaryFallback,
@@ -467,7 +468,7 @@ describe("full-document hierarchical summaries", () => {
 });
 
 describe("summary jobs and per-level caches", () => {
-  function jobHarness() {
+  function jobHarness(documentChunks: SummaryChunk[] = chunks) {
     const records = new Map<string, any>();
     const repository = {
       queue: vi.fn(async (documentId: string, detailLevel: string) => {
@@ -498,7 +499,7 @@ describe("summary jobs and per-level caches", () => {
         const record = [...records.values()].find((item) => item.id === id);
         if (!record || record.status !== "PENDING") return null;
         record.status = "PROCESSING";
-        return { ...record, publication, chunks };
+        return { ...record, publication, chunks: documentChunks };
       }),
       ready: vi.fn(
         async (
@@ -558,6 +559,47 @@ describe("summary jobs and per-level caches", () => {
       expect.any(String),
     );
     expect(state.records.get("doc-1:STANDARD").status).toBe("READY");
+  });
+
+  it("organizes a CV by its own headings and cites the original pages without calling Qwen", async () => {
+    const state = jobHarness([
+      {
+        chunkIndex: 0,
+        pageStart: 1,
+        pageEnd: 1,
+        sectionTitle: null,
+        content:
+          "Experience\nBuilt deployment tools.\nEducation\nComputer Science degree",
+      },
+      {
+        chunkIndex: 1,
+        pageStart: 2,
+        pageEnd: 2,
+        sectionTitle: null,
+        content:
+          "Core Skills: C, Bash and Linux\nProjects\nBuilt a research portal",
+      },
+    ]);
+    const generate = vi.fn();
+    const service = createSummaryJobService({
+      repository: state.repository,
+      summarize: generate,
+    });
+    const job = await service.queueSummary("cv", "STANDARD");
+    await service.processSummary(job.id);
+    expect(generate).not.toHaveBeenCalled();
+    expect(state.records.get("cv:STANDARD").content).toMatchObject({
+      kind: "RESUME",
+      sourcePages: [1, 2],
+      evidence: expect.arrayContaining([
+        {
+          section: "Experience",
+          text: "- Built deployment tools.",
+          pages: [1],
+        },
+        { section: "Skills", text: "- C, Bash and Linux", pages: [2] },
+      ]),
+    });
   });
 
   it("stores deterministic fallback when Ollama is offline and FAILED for internal errors", async () => {

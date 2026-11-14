@@ -6,6 +6,7 @@ import { useFetch } from "../hooks/useFetch";
 import type { Area, Publication } from "../types";
 import { Container, Loading, PageHero } from "../components/ui";
 import { PublicationDocumentPanel } from "../components/PublicationDocumentPanel";
+import { useToast } from "../components/Toast";
 interface DraftForm {
   title: string;
   abstract: string;
@@ -28,6 +29,7 @@ export function ResearcherPublicationDraft() {
   const { user, loading } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const areas = useFetch<Area[]>("/areas");
   const [publication, setPublication] = useState<Publication>();
   const [form, setForm] = useState<DraftForm>(emptyDraft);
@@ -128,10 +130,9 @@ export function ResearcherPublicationDraft() {
             <form onSubmit={save} className="form-card">
               <h2>Publication metadata</h2>
               <p>
-                Before submission, provide an abstract covering the objective,
-                approach, and findings, at least three distinct keywords, a
-                research area, and a text-based PDF. Make sure your references
-                are complete and you have permission to share the work.
+                Save a title and a short description for your draft. To submit
+                it for review, include at least one keyword, a research area,
+                and a processed PDF.
               </p>
               {!editable && (
                 <p>
@@ -156,7 +157,7 @@ export function ResearcherPublicationDraft() {
                   )}
                 </label>
                 <label>
-                  Abstract
+                  Short description (at least 20 characters)
                   <textarea
                     value={form.abstract}
                     required
@@ -268,11 +269,19 @@ export function ResearcherPublicationDraft() {
               <PublicationDocumentPanel
                 publication={publication}
                 canPublish={false}
-                onChanged={(updated) =>
+                onChanged={(updated) => {
+                  if (
+                    publication.workflowStatus === "DRAFT" &&
+                    updated.workflowStatus === "READY_FOR_REVIEW"
+                  ) {
+                    toast.success("Publication submitted for review.");
+                    navigate("/researcher", { replace: true });
+                    return;
+                  }
                   setPublication((current) =>
                     current ? { ...current, ...updated } : current,
-                  )
-                }
+                  );
+                }}
               />
             )}
           </>

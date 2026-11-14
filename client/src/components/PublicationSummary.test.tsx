@@ -35,7 +35,7 @@ describe("publication summary", () => {
     expect(
       screen.getAllByRole("button", { name: "Page 12" }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("Not stated in the document")).toBeTruthy();
+    expect(screen.queryByText("Not stated in the document")).toBeNull();
   });
   it("uses a single standard summary without length selectors", async () => {
     render(<PublicationSummary slug="paper" available />);
@@ -65,6 +65,35 @@ describe("publication summary", () => {
       expect.objectContaining({ method: "POST" }),
     );
   });
+  it("can refresh an old AI summary and display the replacement CV overview", async () => {
+    const overview = {
+      status: "READY",
+      mode: "FALLBACK",
+      content: {
+        kind: "RESUME",
+        evidence: [{ section: "Skills", text: "- C and Bash", pages: [3] }],
+      },
+    };
+    vi.mocked(api)
+      .mockResolvedValueOnce({ status: "READY", mode: "OLLAMA", content })
+      .mockResolvedValue(overview);
+    render(<PublicationSummary slug="paper" available />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Refresh summary" }),
+    );
+    expect(api).toHaveBeenCalledWith(
+      "/publications/paper/summary",
+      expect.objectContaining({
+        body: JSON.stringify({ detailLevel: "STANDARD", refresh: true }),
+      }),
+    );
+    expect(await screen.findByRole("heading", { name: "Skills" })).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "Research Objective" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Page 3" })).toBeTruthy();
+  });
+
   it("queues missing summaries and displays pending status", async () => {
     vi.mocked(api)
       .mockRejectedValueOnce(new ApiError("Not requested", 404))

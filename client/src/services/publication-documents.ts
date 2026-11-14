@@ -38,10 +38,14 @@ export const transitionPublication = (
     `/${administrator ? "admin" : "researcher"}/publications/${encodeURIComponent(id)}/${action}`,
     { method: "POST", body: JSON.stringify({ reviewNote, confirmed }) },
   );
-export const requestSummary = (slug: string, detailLevel: SummaryDetailLevel) =>
+export const requestSummary = (
+  slug: string,
+  detailLevel: SummaryDetailLevel,
+  refresh?: boolean,
+) =>
   api<SummaryStatus>(`${publicationPath(slug)}/summary`, {
     method: "POST",
-    body: JSON.stringify({ detailLevel }),
+    body: JSON.stringify({ detailLevel, refresh }),
   });
 export const askDocument = (
   slug: string,
