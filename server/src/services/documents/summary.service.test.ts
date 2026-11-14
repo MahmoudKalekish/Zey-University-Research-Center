@@ -391,7 +391,7 @@ describe("full-document hierarchical summaries", () => {
       expect(prompts.join(" ")).toContain(`PAGE-${page}`);
   });
 
-  it("discards invented mapped methods and limitations that are absent from source text", async () => {
+  it("recovers exact methods while discarding invented methods and limitations", async () => {
     const generate = vi.fn(async (prompt: string) =>
       prompt.startsWith("FINAL_SYNTHESIS")
         ? finalOutput
@@ -418,7 +418,10 @@ describe("full-document hierarchical summaries", () => {
       "STANDARD",
     );
     expect(result).toMatchObject({
-      methodology: { text: "Not stated in the document", pages: [] },
+      methodology: {
+        text: "The researchers surveyed 420 participants.",
+        pages: [4, 5],
+      },
       limitations: { text: "Not stated in the document", pages: [] },
     });
   });

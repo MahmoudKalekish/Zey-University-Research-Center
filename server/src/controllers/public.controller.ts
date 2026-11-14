@@ -1,6 +1,12 @@
 import type { Request, Response } from "express";
 import { prisma } from "../config/db.js";
-import { pageMeta } from "../utils/http.js";
+import { requirePublicationDocumentAccess } from "../services/publication-access.service.js";
+import { HttpError, pageMeta } from "../utils/http.js";
+const privatePublicationFields = {
+  pdfUrl: true,
+  reviewNote: true,
+  authorAttestedAt: true,
+} as const;
 const paging = (req: Request) => {
   const page = Math.max(1, Number(req.query.page) || 1),
     limit = Math.min(24, Math.max(1, Number(req.query.limit) || 9));
@@ -39,15 +45,19 @@ export async function home(_req: Request, res: Response) {
       take: 3,
     }),
     prisma.publication.findMany({
+      omit: privatePublicationFields,
       where: { workflowStatus: "PUBLISHED" },
       include: {
-        authors: { include: { researcher: true } },
+        authors: {
+          include: { researcher: { omit: { userId: true, email: true } } },
+        },
         areas: { include: { area: true } },
       },
       orderBy: { publicationDate: "desc" },
       take: 4,
     }),
     prisma.researcher.findMany({
+      omit: { userId: true, email: true },
       where: { active: true },
       include: { areas: { include: { area: true } } },
       take: 4,
@@ -101,6 +111,7 @@ export async function researchers(req: Request, res: Response) {
   };
   const [items, total] = await Promise.all([
     prisma.researcher.findMany({
+      omit: { userId: true, email: true },
       where,
       include: {
         areas: { include: { area: true } },
@@ -124,12 +135,14 @@ export async function researchers(req: Request, res: Response) {
 export async function researcher(req: Request, res: Response) {
   res.json(
     await prisma.researcher.findUniqueOrThrow({
-      where: { slug: String(req.params.slug) },
+      omit: { userId: true, email: true },
+
+      where: { slug: String(req.params.slug), active: true },
       include: {
         areas: { include: { area: true } },
         publications: {
           where: { publication: { workflowStatus: "PUBLISHED" } },
-          include: { publication: true },
+          include: { publication: { omit: privatePublicationFields } },
           orderBy: { authorOrder: "asc" },
         },
         projects: { include: { project: true } },
@@ -159,7 +172,9 @@ export async function projects(req: Request, res: Response) {
       where,
       include: {
         areas: { include: { area: true } },
-        researchers: { include: { researcher: true } },
+        researchers: {
+          include: { researcher: { omit: { userId: true, email: true } } },
+        },
         _count: {
           select: { publications: { where: { workflowStatus: "PUBLISHED" } } },
         },
@@ -178,10 +193,17 @@ export async function project(req: Request, res: Response) {
       where: { slug: String(req.params.slug) },
       include: {
         areas: { include: { area: true } },
-        researchers: { include: { researcher: true } },
+        researchers: {
+          include: { researcher: { omit: { userId: true, email: true } } },
+        },
         publications: {
           where: { workflowStatus: "PUBLISHED" },
-          include: { authors: { include: { researcher: true } } },
+          omit: privatePublicationFields,
+          include: {
+            authors: {
+              include: { researcher: { omit: { userId: true, email: true } } },
+            },
+          },
         },
       },
     }),
@@ -222,10 +244,11 @@ export async function publications(req: Request, res: Response) {
   };
   const [items, total] = await Promise.all([
     prisma.publication.findMany({
+      omit: privatePublicationFields,
       where,
       include: {
         authors: {
-          include: { researcher: true },
+          include: { researcher: { omit: { userId: true, email: true } } },
           orderBy: { authorOrder: "asc" },
         },
         areas: { include: { area: true } },
@@ -241,10 +264,11 @@ export async function publications(req: Request, res: Response) {
 }
 export async function publication(req: Request, res: Response) {
   const record = await prisma.publication.findUniqueOrThrow({
+    omit: privatePublicationFields,
     where: { slug: String(req.params.slug), workflowStatus: "PUBLISHED" },
     include: {
       authors: {
-        include: { researcher: true },
+        include: { researcher: { omit: { userId: true, email: true } } },
         orderBy: { authorOrder: "asc" },
       },
       areas: { include: { area: true } },
@@ -260,13 +284,26 @@ export async function publication(req: Request, res: Response) {
       },
     },
   });
-  const ready = record.document?.status === "READY";
-  res.json({
-    ...record,
+  const { document, ...metadata } = record;
+  const ready = document?.status === "READY";
+  let allowed = false;
+  if (ready && req.user && req.user.role !== "VISITOR") {
+    try {
+      await requirePublicationDocumentAccess(record.id, req.user.id);
+      allowed = true;
+    } catch (error) {
+      if (!(error instanceof HttpError && [403, 404].includes(error.status)))
+        throw error;
+    }
+  }
+  res.set("Cache-Control", "private, no-store").json({
+    ...metadata,
+    document: allowed ? document : null,
+    documentRestricted: ready && !allowed,
     documentCapabilities: {
-      canRead: ready,
-      canSummarize: ready,
-      canAsk: ready,
+      canRead: allowed,
+      canSummarize: allowed,
+      canAsk: allowed,
     },
   });
 }

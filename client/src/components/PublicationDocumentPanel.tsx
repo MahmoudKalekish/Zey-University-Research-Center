@@ -34,6 +34,7 @@ export function PublicationDocumentPanel({
   const [note, setNote] = useState("");
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const editable = canPublish || publication.workflowStatus === "DRAFT";
   const ready = job.data?.status === "READY";
   async function perform(action: () => Promise<void>) {
@@ -53,8 +54,15 @@ export function PublicationDocumentPanel({
   async function transition(action: string) {
     await perform(async () => {
       onChanged(
-        await transitionPublication(publication.id, action, canPublish, note),
+        await transitionPublication(
+          publication.id,
+          action,
+          canPublish,
+          note,
+          confirmed,
+        ),
       );
+      setConfirmed(false);
       setMessage("Publication workflow updated.");
       setArchiveConfirm(false);
     });
@@ -140,8 +148,10 @@ export function PublicationDocumentPanel({
                 setFile(undefined);
                 setPreview(false);
                 onChanged(
-                  publication.workflowStatus === "PUBLISHED"
-                    ? { ...publication, workflowStatus: "READY_FOR_REVIEW" }
+                  ["PUBLISHED", "READY_FOR_REVIEW"].includes(
+                    publication.workflowStatus,
+                  )
+                    ? { ...publication, workflowStatus: "DRAFT" }
                     : publication,
                 );
                 setMessage("PDF uploaded. Processing has started.");
@@ -157,6 +167,19 @@ export function PublicationDocumentPanel({
           Submitted publications are locked. An administrator must return this
           publication for changes.
         </p>
+      )}
+      {(publication.workflowStatus === "DRAFT" ||
+        (canPublish && publication.workflowStatus === "READY_FOR_REVIEW")) && (
+        <label className="check-field">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+          />
+          {publication.workflowStatus === "READY_FOR_REVIEW"
+            ? "I reviewed the PDF, author declaration, attribution, references, and permissions, and confirm the document can be shared with approved researchers."
+            : "I confirm that this submission is original or properly attributed, all listed authors consent to sharing it, citations are included where applicable, and we have permission to share it without disclosing confidential or personal data."}
+        </label>
       )}
       <div className="document-actions">
         {ready && (
@@ -204,7 +227,7 @@ export function PublicationDocumentPanel({
           <button
             type="button"
             className="button"
-            disabled={!ready || busy}
+            disabled={!ready || !confirmed || busy}
             onClick={() => void transition("submit")}
           >
             Submit for review
@@ -214,7 +237,7 @@ export function PublicationDocumentPanel({
           <button
             type="button"
             className="button"
-            disabled={!ready || busy}
+            disabled={!ready || !confirmed || busy}
             onClick={() => void transition("publish")}
           >
             Publish

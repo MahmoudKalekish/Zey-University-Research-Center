@@ -138,13 +138,27 @@ function rawSourceSentences(chunk: SummaryChunk) {
     .join(" ");
   return body
     .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
+    .map((sentence) =>
+      sentence
+        .trim()
+        .replace(
+          /^(objective|introduction|methods?|methodology|results?|findings|conclusions?|limitations?|discussion):\s*/i,
+          "",
+        ),
+    )
     .filter(Boolean);
 }
 function sourceSentences(chunk: SummaryChunk) {
   return rawSourceSentences(chunk).map(normalizedQuote);
 }
 
+const explicitSectionHeadings = {
+  methodology:
+    /^(?:[\d.]+\s+)?(?:materials and methods|methods?|methodology)$/i,
+  findings: /^(?:[\d.]+\s+)?(?:results?|findings)$/i,
+  conclusions: /^(?:[\d.]+\s+)?conclusions?$/i,
+  limitations: /^(?:[\d.]+\s+)?(?:study )?limitations?$/i,
+};
 function supportsCategory(heading: string, key: (typeof evidenceKeys)[number]) {
   const recognized =
     /objective|introduction|methods?|methodology|results?|findings|conclusion|limitation|discussion/i.test(
@@ -428,6 +442,26 @@ export function createSummaryEngine({
               ),
           ),
         ];
+        // Recover evidence missed by a small model, only from explicit section
+        // headings and exact text. Do not infer categories for unheaded passages.
+        for (const key of Object.keys(explicitSectionHeadings) as Array<
+          keyof typeof explicitSectionHeadings
+        >) {
+          if (mapped[key].length) continue;
+          mapped[key] = batch
+            .flatMap((chunk) => {
+              if (
+                !explicitSectionHeadings[key].test(
+                  chunk.sectionTitle?.trim() ?? "",
+                )
+              )
+                return [];
+              return rawSourceSentences(chunk)
+                .slice(0, 2)
+                .map((text) => ({ text, pages: [...pageSet([chunk])] }));
+            })
+            .slice(0, 3);
+        }
         evidence.push(mapped);
       }
       let synthesisEvidence = evidence;
@@ -545,11 +579,12 @@ export function createSummaryEngine({
           generated[section] = sectionSchema.parse(
             (result as Record<string, unknown>)[section] ?? result,
           );
-          if (!generated[section].pages.some((page) => allowed.has(page)))
-            throw new LocalGenerationError(
-              "INVALID_OUTPUT",
-              "The section lost its document evidence",
-            );
+          if (!generated[section].pages.some((page) => allowed.has(page))) {
+            generated[section] = {
+              text: items[0]!.text,
+              pages: items[0]!.pages,
+            };
+          }
         }
       }
       return normalizeSummary(generated, chunks, detailLevel, evidence);
@@ -567,8 +602,20 @@ export function buildSummaryFallback(
 ) {
   const sectionPattern =
     /methods?|methodology|results?|discussion|conclusions?|limitations?/i;
-  const evidence = chunks
-    .filter((chunk) => sectionPattern.test(chunk.sectionTitle ?? ""))
+  const grouped = new Map<string, SummaryChunk>();
+  for (const chunk of chunks) {
+    const heading = chunk.sectionTitle ?? "";
+    if (sectionPattern.test(heading) && !grouped.has(heading.toLowerCase()))
+      grouped.set(heading.toLowerCase(), chunk);
+  }
+  const samples = [...grouped.values()].slice(0, 6);
+  if (samples.length < 3 && chunks.length) {
+    for (const index of [0, Math.floor(chunks.length / 2), chunks.length - 1]) {
+      if (!samples.includes(chunks[index]!)) samples.push(chunks[index]!);
+    }
+  }
+  const evidence = samples
+    .sort((a, b) => a.pageStart - b.pageStart)
     .map((chunk) => ({
       section: chunk.sectionTitle ?? "Evidence",
       text: chunk.content.slice(0, 700).trim(),

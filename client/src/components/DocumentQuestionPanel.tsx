@@ -1,3 +1,4 @@
+import { AnswerText } from "./AnswerText";
 import { useEffect, useRef, useState } from "react";
 import { askDocument } from "../services/publication-documents";
 import type { DocumentAnswer } from "../types/publication-document";
@@ -67,27 +68,35 @@ export function DocumentQuestionPanel({
       <div aria-live="polite">
         {answers.map((answer, index) => (
           <article className="document-answer" key={index}>
-            <h3>{answer.question}</h3>
-            <span className="status">
-              {answer.mode === "OLLAMA"
-                ? "Local Qwen"
-                : "Document evidence fallback"}
+            <div className="document-answer-header">
+              <span className="message-author">Your question</span>
+              <h3>{answer.question}</h3>
+            </div>
+            <span className="status answer-mode">
+              {answer.mode === "OLLAMA" ? "AI answer" : "Document evidence"}
             </span>
-            <p>{answer.answer}</p>
-            {answer.evidence.map((evidence) => (
-              <blockquote key={evidence.chunkId}>
-                <p>{evidence.snippet}</p>
-                <PageEvidence
-                  managed={managed}
-                  slug={slug}
-                  pages={
-                    evidence.pageStart === evidence.pageEnd
-                      ? [evidence.pageStart]
-                      : [evidence.pageStart, evidence.pageEnd]
-                  }
-                />
-              </blockquote>
-            ))}
+            <AnswerText text={answer.answer} />
+            {answer.evidence.length > 0 && (
+              <details className="answer-evidence">
+                <summary>
+                  Supporting passages ({answer.evidence.length})
+                </summary>
+                {answer.evidence.map((evidence) => (
+                  <blockquote key={evidence.chunkId}>
+                    <p>{evidence.snippet}</p>
+                    <PageEvidence
+                      managed={managed}
+                      slug={slug}
+                      pages={
+                        evidence.pageStart === evidence.pageEnd
+                          ? [evidence.pageStart]
+                          : [evidence.pageStart, evidence.pageEnd]
+                      }
+                    />
+                  </blockquote>
+                ))}
+              </details>
+            )}
           </article>
         ))}
       </div>

@@ -5,6 +5,12 @@ function setup(status = "DRAFT", documentStatus: string | null = "READY") {
   const repository = {
     find: vi.fn(async () => ({
       id: "paper",
+      title: "Campus Water Sensor Evaluation",
+      abstract:
+        "This study evaluates a campus monitoring system, tests its sensors, and describes its findings and limitations.",
+      keywords: ["water", "sensors", "campus"],
+      authorAttestedAt: new Date(),
+      _count: { authors: 1, areas: 1 },
       workflowStatus: status,
       document: documentStatus ? { status: documentStatus } : null,
     })),
@@ -27,7 +33,14 @@ describe("publication lifecycle orchestration", () => {
   });
   it("passes the expected old state to an atomic transition", async () => {
     const { service, repository } = setup("READY_FOR_REVIEW");
-    await service.transition("paper", "PUBLISHED", "admin", "ADMIN");
+    await service.transition(
+      "paper",
+      "PUBLISHED",
+      "admin",
+      "ADMIN",
+      undefined,
+      true,
+    );
     expect(repository.transition).toHaveBeenCalledWith(
       "paper",
       "READY_FOR_REVIEW",
@@ -36,6 +49,27 @@ describe("publication lifecycle orchestration", () => {
         publishedAt: expect.any(Date),
       }),
     );
+  });
+  it("rejects missing consent and incomplete metadata before moving a draft to review", async () => {
+    const { service, repository } = setup();
+    await expect(
+      service.transition("paper", "READY_FOR_REVIEW", "author", "RESEARCHER"),
+    ).rejects.toMatchObject({ status: 422 });
+    repository.find.mockResolvedValueOnce({
+      ...(await repository.find()),
+      keywords: ["same", "Same", "SAME"],
+    });
+    await expect(
+      service.transition(
+        "paper",
+        "READY_FOR_REVIEW",
+        "author",
+        "RESEARCHER",
+        undefined,
+        true,
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+    expect(repository.transition).not.toHaveBeenCalled();
   });
   it("prevents researchers publishing and rejects unknown records", async () => {
     const { service, repository } = setup("READY_FOR_REVIEW");

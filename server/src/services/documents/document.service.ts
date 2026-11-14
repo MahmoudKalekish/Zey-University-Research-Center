@@ -71,10 +71,15 @@ const prismaRepository = {
           where: { id: previous.id },
         });
       }
-      if (publication.workflowStatus === "PUBLISHED") {
+      if (
+        ["PUBLISHED", "READY_FOR_REVIEW"].includes(publication.workflowStatus)
+      ) {
         await transaction.publication.update({
           where: { id: publication.id },
-          data: buildPublicationTransitionData("READY_FOR_REVIEW", new Date()),
+          data: {
+            ...buildPublicationTransitionData("DRAFT", new Date()),
+            authorAttestedAt: null,
+          },
         });
       }
       const document = await transaction.publicationDocument.create({

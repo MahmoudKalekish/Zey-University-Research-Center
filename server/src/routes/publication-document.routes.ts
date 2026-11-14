@@ -1,3 +1,4 @@
+import { requestLimit } from "../middleware/request-limit.js";
 import {
   Router,
   type NextFunction,
@@ -17,12 +18,29 @@ import { publicationDocumentDependencies as defaultDependencies } from "../servi
 import { asyncHandler, HttpError } from "../utils/http.js";
 import {
   documentQuestionSchema,
+  publicationConfirmationSchema,
   publicationReturnSchema,
   researcherPublicationDraftSchema,
   summaryRequestSchema,
 } from "../validation/schemas.js";
 
 type Scope = "public" | "admin" | "researcher";
+
+const requireDocumentRole: RequestHandler = (request, _response, next) => {
+  if (request.user?.role === "ADMIN" || request.user?.role === "RESEARCHER")
+    return next();
+  next(
+    new HttpError(
+      403,
+      "Approved researcher access is required for this document.",
+    ),
+  );
+};
+
+const noStore: RequestHandler = (_request, response, next) => {
+  response.set("Cache-Control", "private, no-store");
+  next();
+};
 
 export interface RouteDependencies {
   authenticate: RequestHandler;
@@ -37,6 +55,7 @@ export interface RouteDependencies {
     userId: string,
     role: Role,
     reviewNote?: string,
+    confirmed?: boolean,
   ) => Promise<unknown>;
   createResearcherDraft: (userId: string, input: unknown) => Promise<unknown>;
   resolvePublic: (
@@ -106,6 +125,9 @@ export function createPublicationDocumentRouter(
     );
     router.get(
       "/:slug/document",
+      dependencies.authenticate,
+      noStore,
+      requireDocumentRole,
       asyncHandler(async (request, response, next) => {
         await dependencies.streamDocument(
           String(request.params.slug),
@@ -117,6 +139,10 @@ export function createPublicationDocumentRouter(
     );
     router.post(
       "/:slug/summary",
+      dependencies.authenticate,
+      requestLimit(12, 60_000),
+      noStore,
+      requireDocumentRole,
       asyncHandler(async (request, response) => {
         const { detailLevel } = summaryRequestSchema.parse(request.body);
         const publication = await dependencies.resolvePublic(
@@ -132,6 +158,9 @@ export function createPublicationDocumentRouter(
     );
     router.get(
       "/:slug/summary",
+      dependencies.authenticate,
+      noStore,
+      requireDocumentRole,
       asyncHandler(async (request, response) => {
         const { detailLevel } = summaryRequestSchema.parse(request.query);
         const publication = await dependencies.resolvePublic(
@@ -145,6 +174,10 @@ export function createPublicationDocumentRouter(
     );
     router.post(
       "/:slug/ask",
+      dependencies.authenticate,
+      requestLimit(20, 60_000),
+      noStore,
+      requireDocumentRole,
       asyncHandler(async (request, response) => {
         const input = documentQuestionSchema.parse(request.body);
         response.json(
@@ -190,6 +223,8 @@ export function createPublicationDocumentRouter(
             "READY_FOR_REVIEW",
             user.id,
             user.role,
+            undefined,
+            publicationConfirmationSchema.parse(request.body).confirmed,
           ),
         );
       }),
@@ -218,6 +253,9 @@ export function createPublicationDocumentRouter(
               user.id,
               user.role,
               reviewNote,
+              to === "PUBLISHED" || to === "READY_FOR_REVIEW"
+                ? publicationConfirmationSchema.parse(request.body).confirmed
+                : undefined,
             ),
           );
         }),

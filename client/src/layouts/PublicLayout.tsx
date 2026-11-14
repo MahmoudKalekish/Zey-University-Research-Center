@@ -52,6 +52,14 @@ export function PublicLayout() {
             >
               <Search size={19} />
             </NavLink>
+            {user?.role === "VISITOR" && (
+              <NavLink
+                to="/researcher-application"
+                onClick={() => setOpen(false)}
+              >
+                Researcher access
+              </NavLink>
+            )}
           </nav>
           <div className="nav-actions">
             {user ? (
@@ -112,6 +120,9 @@ export function PublicLayout() {
             <Link to="/about">About us</Link>
             <Link to="/researchers">Our researchers</Link>
             <Link to="/contact">Contact</Link>
+            <Link to="/researcher-application">
+              Apply for researcher access
+            </Link>
             <Link to="/assistant">AI assistant</Link>
           </div>
           <div>

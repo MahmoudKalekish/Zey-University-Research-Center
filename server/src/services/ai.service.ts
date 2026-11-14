@@ -221,7 +221,7 @@ export async function askResearchAssistant(
               num_ctx: 4096,
               num_predict: 350,
             },
-            prompt: `You are a university research center assistant. Answer in English using only the supplied CONTEXT. Never invent information. Cite the relevant record titles.\nQUESTION: ${question}\nCONTEXT: ${context}`,
+            prompt: `You are a university research center assistant. Answer in English using only the supplied CONTEXT. Never invent information. Cite the relevant record titles. Use short paragraphs. Put each bullet on its own line.\nQUESTION: ${question}\nCONTEXT: ${context}`,
           }),
           signal: AbortSignal.timeout(env.OLLAMA_TIMEOUT_MS),
         },

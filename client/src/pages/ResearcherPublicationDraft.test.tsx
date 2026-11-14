@@ -46,7 +46,11 @@ beforeEach(() => {
 });
 describe("researcher draft editor", () => {
   it("creates a draft with author assignment controlled by the server", async () => {
-    vi.mocked(api).mockResolvedValue({ ...paper, workflowStatus: "DRAFT" });
+    vi.mocked(api).mockImplementation(async (path) =>
+      path === "/areas"
+        ? [{ id: "area", name: "Digital Health" }]
+        : { ...paper, workflowStatus: "DRAFT" },
+    );
     show();
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "New research" },
@@ -54,8 +58,15 @@ describe("researcher draft editor", () => {
     fireEvent.change(screen.getByLabelText("Abstract"), {
       target: { value: "This study tests a campus sensing method." },
     });
-    fireEvent.change(screen.getByLabelText("Journal / conference"), {
-      target: { value: "ZURC" },
+    fireEvent.change(
+      screen.getByLabelText("Journal, conference, or publishing institution"),
+      {
+        target: { value: "ZURC" },
+      },
+    );
+    await screen.findByRole("option", { name: "Digital Health" });
+    fireEvent.change(screen.getByLabelText("Primary research area"), {
+      target: { value: "area" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
     await waitFor(() =>
@@ -64,13 +75,19 @@ describe("researcher draft editor", () => {
         expect.objectContaining({ method: "POST" }),
       ),
     );
-    const body = JSON.parse(vi.mocked(api).mock.calls[0]![1]?.body as string);
+    const body = JSON.parse(
+      vi.mocked(api).mock.calls.find(([, init]) => init?.method === "POST")?.[1]
+        ?.body as string,
+    );
+    expect(body.areaIds).toEqual(["area"]);
     expect(body.authorIds).toBeUndefined();
     expect(body.workflowStatus).toBeUndefined();
     expect(await screen.findByText("Author document management")).toBeTruthy();
   });
   it("locks metadata after submission", async () => {
-    vi.mocked(api).mockResolvedValue(paper);
+    vi.mocked(api).mockImplementation(async (path) =>
+      path === "/areas" ? [] : paper,
+    );
     show("/researcher/publications/paper");
     expect(
       (await screen.findByLabelText("Title")).closest("fieldset"),

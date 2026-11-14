@@ -26,7 +26,8 @@ import { globalSearch } from "../services/search.service.js";
 import { askResearchAssistant } from "../services/ai.service.js";
 
 const req = { query: {}, params: { slug: "paper" } } as unknown as Request;
-const response = () => ({ json: vi.fn() }) as unknown as Response;
+const response = () =>
+  ({ json: vi.fn(), set: vi.fn().mockReturnThis() }) as unknown as Response;
 beforeEach(() => vi.clearAllMocks());
 describe("public publication visibility", () => {
   it("filters home publication statistics and recent work", async () => {

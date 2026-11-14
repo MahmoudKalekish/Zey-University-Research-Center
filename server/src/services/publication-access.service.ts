@@ -28,7 +28,7 @@ const repository: AccessRepository = {
         id: true,
         role: true,
         active: true,
-        researcher: { select: { id: true } },
+        researcher: { select: { id: true, active: true } },
       },
     });
     return user
@@ -36,7 +36,7 @@ const repository: AccessRepository = {
           id: user.id,
           role: user.role,
           active: user.active,
-          researcherId: user.researcher?.id ?? null,
+          researcherId: user.researcher?.active ? user.researcher.id : null,
         }
       : null;
   },
@@ -103,17 +103,28 @@ export function createPublicationAccessService(
       }
       return publication;
     },
-    async requirePublicOrManagerAccess(publicationId: string, userId?: string) {
+    async requirePublicationDocumentAccess(
+      publicationId: string,
+      userId?: string,
+    ) {
       const publication = await load(publicationId);
-      if (publication.workflowStatus === "PUBLISHED") return publication;
-      if (!userId) throw new HttpError(404, "Publication not found");
+      if (!userId)
+        throw new HttpError(
+          401,
+          "Sign in with approved researcher access to read publication documents.",
+        );
       const user = await activeUser(userId);
       const canManage =
         user.role === "ADMIN" ||
         (user.role === "RESEARCHER" &&
           Boolean(user.researcherId) &&
-          publication.authorResearcherIds.includes(user.researcherId!));
-      if (!canManage) throw new HttpError(404, "Publication not found");
+          (publication.workflowStatus === "PUBLISHED" ||
+            publication.authorResearcherIds.includes(user.researcherId!)));
+      if (!canManage)
+        throw new HttpError(
+          403,
+          "Approved researcher access is required for this document.",
+        );
       return publication;
     },
   };
@@ -122,4 +133,5 @@ export function createPublicationAccessService(
 const access = createPublicationAccessService(repository);
 export const requirePublicationAuthor = access.requirePublicationAuthor;
 export const requirePublicationManager = access.requirePublicationManager;
-export const requirePublicOrManagerAccess = access.requirePublicOrManagerAccess;
+export const requirePublicationDocumentAccess =
+  access.requirePublicationDocumentAccess;

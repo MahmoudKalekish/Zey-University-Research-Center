@@ -1,3 +1,4 @@
+import { PasswordInput } from "./PasswordInput";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { ApiError, api } from "../services/api";
@@ -22,7 +23,7 @@ const common: Record<string, Field[]> = {
       key: "role",
       label: "Role",
       type: "select",
-      options: ["RESEARCHER", "ADMIN", "VISITOR"],
+      options: ["VISITOR", "ADMIN"],
     },
     {
       key: "active",
@@ -205,8 +206,13 @@ export function AdminEditor({
     };
   }, [onClose]);
   const fields = common[entity] || [];
+  const metadataLocked =
+    entity === "publications" &&
+    Boolean(item?.id) &&
+    form.workflowStatus !== "DRAFT";
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (metadataLocked) return;
     setBusy(true);
     setError("");
     setFieldErrors({});
@@ -274,7 +280,11 @@ export function AdminEditor({
           {entity === "publications" && (
             <h2 className="editor-section-title">Metadata and relationships</h2>
           )}
-          <div className="editor-fields">
+          <fieldset
+            className="editor-fields"
+            disabled={metadataLocked}
+            style={{ border: 0 }}
+          >
             {error && (
               <div className="form-error editor-error" role="alert">
                 {error}
@@ -306,7 +316,10 @@ export function AdminEditor({
                       setForm({ ...form, [f.key]: e.target.value })
                     }
                   >
-                    {f.options?.map((o) => (
+                    {(f.key === "role" && item?.role === "RESEARCHER"
+                      ? ["RESEARCHER", ...(f.options ?? [])]
+                      : (f.options ?? [])
+                    ).map((o) => (
                       <option key={o} value={o}>
                         {f.key === "active"
                           ? o === "true"
@@ -361,6 +374,15 @@ export function AdminEditor({
                       Hold Ctrl or Cmd to select more than one.
                     </span>
                   </>
+                ) : f.type === "password" ? (
+                  <PasswordInput
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(fieldErrors[f.key]?.length)}
+                    value={form[f.key] || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, [f.key]: e.target.value })
+                    }
+                  />
                 ) : (
                   <input
                     type={f.type || "text"}
@@ -389,7 +411,7 @@ export function AdminEditor({
                 )}
               </label>
             ))}
-          </div>
+          </fieldset>
           <footer>
             {entity === "messages" && item?.email && (
               <a
@@ -402,13 +424,15 @@ export function AdminEditor({
             <button type="button" className="button ghost" onClick={onClose}>
               {entity === "messages" ? "Close" : "Cancel"}
             </button>
-            <button className="button" disabled={busy}>
-              {busy
-                ? "Saving…"
-                : entity === "messages"
-                  ? "Update status"
-                  : "Save"}
-            </button>
+            {!metadataLocked && (
+              <button className="button" disabled={busy}>
+                {busy
+                  ? "Saving…"
+                  : entity === "messages"
+                    ? "Update status"
+                    : "Save"}
+              </button>
+            )}
           </footer>
         </form>
         {entity === "publications" && item?.id && (

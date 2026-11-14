@@ -2,10 +2,29 @@ import { CalendarDays, MapPin, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Area, Project, Publication, Researcher } from "../types";
 import { Badge } from "./ui";
+const areaInitials: Record<string, string> = {
+  "artificial-intelligence": "AI",
+  cybersecurity: "CS",
+  "smart-cities": "SC",
+  "digital-health": "DH",
+  "sustainable-energy": "SE",
+  "robotics-and-autonomous-systems": "RAS",
+  "climate-and-environmental-science": "CES",
+  "data-science-and-analytics": "DSA",
+};
 export function AreaCard({ x }: { x: Area }) {
   return (
     <Link className="card area-card" to={`/research-areas?area=${x.slug}`}>
-      <div className="icon-mark">{x.name.slice(0, 2)}</div>
+      <div className="icon-mark">
+        {areaInitials[x.slug] ??
+          x.name
+            .split(/\s+/)
+            .filter((word) => word && !/^(and|of|the|for)$/i.test(word))
+            .slice(0, 3)
+            .map((word) => Array.from(word)[0])
+            .join("")
+            .toUpperCase()}
+      </div>
       <h3>{x.name}</h3>
       <p>{x.description}</p>
       {x._count && (

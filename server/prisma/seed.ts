@@ -47,6 +47,7 @@ async function main() {
   await p.project.deleteMany();
   await p.researcherArea.deleteMany();
   await p.researcher.deleteMany();
+  await p.researcherApplication.deleteMany();
   await p.researchArea.deleteMany();
   await p.event.deleteMany();
   await p.news.deleteMany();

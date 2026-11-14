@@ -1,3 +1,4 @@
+import { PasswordInput } from "../components/PasswordInput";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -101,8 +102,8 @@ export function AuthPage({ register = false }: { register?: boolean }) {
           </label>
           <label>
             Password
-            <input
-              type="password"
+            <PasswordInput
+              autoComplete={register ? "new-password" : "current-password"}
               required
               minLength={8}
               aria-invalid={Boolean(fieldErrors.password?.length)}

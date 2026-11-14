@@ -6,7 +6,7 @@ import { authenticate } from "../middleware/auth.js";
 import { publicationPdfUpload } from "../middleware/publication-upload.js";
 import {
   requirePublicationManager,
-  requirePublicOrManagerAccess,
+  requirePublicationDocumentAccess,
 } from "../services/publication-access.service.js";
 import {
   getDocumentStatus,
@@ -49,7 +49,10 @@ export const publicationDocumentDependencies: RouteDependencies = {
     find: (id) =>
       prisma.publication.findUnique({
         where: { id },
-        include: { document: { select: { status: true } } },
+        include: {
+          document: { select: { status: true } },
+          _count: { select: { authors: true, areas: true } },
+        },
       }),
     async transition(id, expectedStatus, data) {
       return prisma.$transaction(async (transaction) => {
@@ -90,7 +93,7 @@ export const publicationDocumentDependencies: RouteDependencies = {
         areas: { create: areaIds.map((areaId) => ({ areaId })) },
         authors: { create: [{ researcherId: researcher.id, authorOrder: 0 }] },
       },
-      include: { authors: true, areas: true },
+      include: { authors: true, areas: { include: { area: true } } },
     });
   },
   async resolvePublic(slug, userId) {
@@ -103,7 +106,7 @@ export const publicationDocumentDependencies: RouteDependencies = {
       },
     });
     if (!publication) throw new HttpError(404, "Publication not found");
-    await requirePublicOrManagerAccess(publication.id, userId);
+    await requirePublicationDocumentAccess(publication.id, userId);
     if (!publication.document || publication.document.status !== "READY") {
       throw new HttpError(409, "The publication PDF is not ready");
     }
@@ -125,7 +128,7 @@ export const publicationDocumentDependencies: RouteDependencies = {
         },
       });
       if (!publication) throw new HttpError(404, "Publication not found");
-      await requirePublicOrManagerAccess(publication.id, userId);
+      await requirePublicationDocumentAccess(publication.id, userId);
       if (!publication.document || publication.document.status !== "READY")
         throw new HttpError(404, "Publication document not found");
       const absolutePath = resolveStoragePath(publication.document.storageKey);
@@ -138,7 +141,7 @@ export const publicationDocumentDependencies: RouteDependencies = {
         "Content-Length": String(information.size),
         "Content-Disposition": `inline; filename="${safeName}"`,
         "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "private, max-age=0, must-revalidate",
+        "Cache-Control": "private, no-store",
       });
       createReadStream(absolutePath).on("error", next).pipe(response);
     } catch (error) {

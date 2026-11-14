@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PublicationSummary } from "./PublicationSummary";
 import { api, ApiError } from "../services/api";
@@ -32,21 +32,18 @@ describe("publication summary", () => {
     render(<PublicationSummary slug="paper" available />);
     await screen.findByRole("heading", { name: "Key Findings" });
     expect(screen.getByRole("heading", { name: "Methodology" })).toBeTruthy();
-    expect(screen.getAllByRole("link", { name: "Page 12" })[0]).toHaveProperty(
-      "href",
-      expect.stringContaining("#page=12"),
-    );
+    expect(
+      screen.getAllByRole("button", { name: "Page 12" }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Not stated in the document")).toBeTruthy();
   });
-  it("loads each detail level independently", async () => {
+  it("uses a single standard summary without length selectors", async () => {
     render(<PublicationSummary slug="paper" available />);
     await screen.findByRole("heading", { name: "In Short" });
-    fireEvent.click(screen.getByRole("button", { name: "Detailed" }));
-    await waitFor(() =>
-      expect(api).toHaveBeenCalledWith(
-        "/publications/paper/summary?detailLevel=DETAILED",
-      ),
+    expect(api).toHaveBeenCalledWith(
+      "/publications/paper/summary?detailLevel=STANDARD",
     );
+    expect(screen.queryByRole("button", { name: "Detailed" })).toBeNull();
   });
   it("shows explicit deterministic fallback evidence", async () => {
     vi.mocked(api).mockResolvedValue({
@@ -62,6 +59,11 @@ describe("publication summary", () => {
     render(<PublicationSummary slug="paper" available />);
     expect(await screen.findByText("Nine leaks")).toBeTruthy();
     expect(screen.getByText("Local AI unavailable")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry summary" }));
+    expect(api).toHaveBeenCalledWith(
+      "/publications/paper/summary",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
   it("queues missing summaries and displays pending status", async () => {
     vi.mocked(api)

@@ -1,3 +1,4 @@
+import { ResearcherApplication } from "./pages/ResearcherApplication";
 import { Routes, Route } from "react-router-dom";
 import { PublicLayout } from "./layouts/PublicLayout";
 import { Home } from "./pages/Home";
@@ -64,6 +65,10 @@ export default function App() {
         />
         <Route path="search" element={<GlobalSearch />} />
         <Route path="assistant" element={<Assistant />} />
+        <Route
+          path="researcher-application"
+          element={<ResearcherApplication />}
+        />
         <Route path="contact" element={<Contact />} />
         <Route path="login" element={<AuthPage />} />
         <Route path="register" element={<AuthPage register />} />

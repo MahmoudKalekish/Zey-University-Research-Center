@@ -14,7 +14,7 @@ import { adminRouter } from "./admin.routes.js";
 import { errorHandler } from "../middleware/errors.js";
 
 const db = vi.hoisted(() => ({
-  user: { create: vi.fn(), update: vi.fn() },
+  user: { create: vi.fn(), update: vi.fn(), findUniqueOrThrow: vi.fn() },
   researcher: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
@@ -58,6 +58,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   db.$transaction.mockImplementation(async (callback) => callback(db));
   db.user.update.mockResolvedValue(account);
+  db.user.findUniqueOrThrow.mockResolvedValue(account);
   db.user.create.mockResolvedValue(account);
   db.researcher.findUnique.mockResolvedValue(null);
   db.researcher.findFirst.mockResolvedValue(null);
@@ -65,7 +66,7 @@ beforeEach(() => {
 });
 
 describe("administrator role changes", () => {
-  it("provisions a profile in the same transaction when promoting a visitor", async () => {
+  it("provisions a profile in the same transaction when repairing an existing researcher", async () => {
     const response = await request(server)
       .put(`/admin/users/${account.id}`)
       .send({ role: "RESEARCHER" });
@@ -86,14 +87,22 @@ describe("administrator role changes", () => {
     expect(response.body.passwordHash).toBeUndefined();
   });
 
-  it("also provisions an administrator-created researcher account", async () => {
+  it("rejects creating a researcher without a verified application", async () => {
     const response = await request(server)
       .post("/admin/users")
       .send({ ...account, password: "Research123!" });
-    expect(response.status).toBe(201);
-    expect(db.researcher.create).toHaveBeenCalledOnce();
+    expect(response.status).toBe(422);
+    expect(db.user.create).not.toHaveBeenCalled();
   });
 
+  it("rejects direct role escalation from visitor", async () => {
+    db.user.findUniqueOrThrow.mockResolvedValue({ role: "VISITOR" });
+    await request(server)
+      .put(`/admin/users/${account.id}`)
+      .send({ role: "RESEARCHER" })
+      .expect(409);
+    expect(db.user.update).not.toHaveBeenCalled();
+  });
   it("preserves a profile on demotion and does not give a visitor a new profile", async () => {
     db.user.update.mockResolvedValue({ ...account, role: "VISITOR" });
     const response = await request(server)

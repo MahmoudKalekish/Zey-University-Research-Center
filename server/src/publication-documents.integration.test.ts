@@ -36,6 +36,8 @@ describe.skipIf(!enabled)(
     let authorToken: string;
     let outsiderToken: string;
     let adminToken: string;
+    let visitorToken: string;
+    let areaId: string;
     let publicationId: string;
     let slug: string;
     const previousStorage = env.PUBLICATION_STORAGE_DIR;
@@ -52,7 +54,23 @@ describe.skipIf(!enabled)(
       storage = await mkdtemp(path.join(tmpdir(), "zurc-acceptance-"));
       env.PUBLICATION_STORAGE_DIR = storage;
       env.OLLAMA_URL = "http://127.0.0.1:9";
-      for (const role of ["ADMIN", "RESEARCHER", "RESEARCHER"] as const) {
+      areaId = (
+        await prisma.researchArea.create({
+          data: {
+            name: `Acceptance area ${suffix}`,
+            slug: `acceptance-${suffix}`,
+            description: "Test",
+            icon: "AI",
+            objectives: [],
+          },
+        })
+      ).id;
+      for (const role of [
+        "ADMIN",
+        "RESEARCHER",
+        "RESEARCHER",
+        "VISITOR",
+      ] as const) {
         const user = await prisma.user.create({
           data: {
             email: `${role}-${tokens.length}-${suffix}@zurc.test`,
@@ -68,6 +86,7 @@ describe.skipIf(!enabled)(
           env.JWT_SECRET,
         );
         if (role === "ADMIN") adminToken = token;
+        else if (role === "VISITOR") visitorToken = token;
         else {
           const profile = await prisma.researcher.create({
             data: {
@@ -96,10 +115,118 @@ describe.skipIf(!enabled)(
       });
       await prisma.researcher.deleteMany({ where: { userId: { in: tokens } } });
       await prisma.user.deleteMany({ where: { id: { in: tokens } } });
+      await prisma.researchArea.deleteMany({ where: { id: areaId } });
       await prisma.$disconnect();
       env.PUBLICATION_STORAGE_DIR = previousStorage;
       env.OLLAMA_URL = previousOllama;
       if (storage) await rm(storage, { recursive: true, force: true });
+    });
+    it("requires a complete application, protects the review queue, and grants access only after verification", async () => {
+      const body = {
+        category: "STUDENT",
+        institution: "Acceptance University",
+        department: "Engineering",
+        areaId,
+        proposal:
+          "I will study campus flood monitoring by comparing water level sensors across different locations and publishing the results.",
+        experience:
+          "I am studying engineering and have completed a project on campus data collection and sensor validation.",
+        benefit:
+          "Campus staff can use the research to decide where to place sensors for earlier warnings.",
+        keywords: ["flood monitoring", "sensors", "early warning"],
+        consent: true,
+      };
+      const visitor = await prisma.user.findFirstOrThrow({
+        where: { id: { in: tokens }, role: "VISITOR" },
+      });
+      const payload = { ...body, institutionalEmail: visitor.email };
+      await request(app)
+        .post("/api/researcher-applications")
+        .send(payload)
+        .expect(401);
+      await request(app)
+        .post("/api/researcher-applications")
+        .auth(visitorToken, { type: "bearer" })
+        .send({ ...payload, benefit: "" })
+        .expect(422);
+      await request(app)
+        .post("/api/researcher-applications")
+        .auth(visitorToken, { type: "bearer" })
+        .send(payload)
+        .expect(201);
+      await request(app)
+        .post("/api/researcher-applications")
+        .auth(visitorToken, { type: "bearer" })
+        .send(payload)
+        .expect(409);
+      await request(app)
+        .get("/api/admin/researcher-applications")
+        .auth(visitorToken, { type: "bearer" })
+        .expect(403);
+      const mine = await request(app)
+        .get("/api/researcher-applications/me")
+        .auth(visitorToken, { type: "bearer" })
+        .expect(200);
+      expect(mine.body).toMatchObject({ status: "PENDING" });
+      expect(mine.body).not.toHaveProperty("institutionalReference");
+      const queue = await request(app)
+        .get("/api/admin/researcher-applications?q=flood%20monitoring")
+        .auth(adminToken, { type: "bearer" })
+        .expect(200);
+      const application = queue.body.items.find(
+        (item: { userId: string }) => item.userId === visitor.id,
+      );
+      expect(application).not.toHaveProperty("institutionalReference");
+      const review = `/api/admin/researcher-applications/${application.id}/review`;
+      await request(app)
+        .post(review)
+        .auth(adminToken, { type: "bearer" })
+        .send({
+          decision: "APPROVED",
+          verified: false,
+          note: "Verification not yet complete",
+        })
+        .expect(422);
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { id: visitor.id } }))
+          .role,
+      ).toBe("VISITOR");
+      await request(app)
+        .post(review)
+        .auth(adminToken, { type: "bearer" })
+        .send({
+          decision: "APPROVED",
+          verified: true,
+          note: "Confirmed through the institution's official registrar.",
+        })
+        .expect(200);
+      const profile = await request(app)
+        .get("/api/researcher/me")
+        .auth(visitorToken, { type: "bearer" })
+        .expect(200);
+      expect(profile.body.areas[0].areaId).toBe(areaId);
+      expect(
+        (
+          await prisma.researcherApplication.findUniqueOrThrow({
+            where: { id: application.id },
+          })
+        ).institutionalReference,
+      ).toBe("");
+      // Use a different visitor for document authorization checks after this promotion.
+      const another = await prisma.user.create({
+        data: {
+          email: `reader-${suffix}@zurc.test`,
+          passwordHash: "test-only-not-a-login",
+          firstName: "Test",
+          lastName: "Reader",
+          role: "VISITOR",
+        },
+      });
+      tokens.push(another.id);
+      visitorToken = jwt.sign(
+        { id: another.id, email: another.email, role: "VISITOR" },
+        env.JWT_SECRET,
+      );
     });
     it("enforces author ownership, readiness, review, public visibility, fallback analysis, replacement and deletion", async () => {
       const draft = await request(app)
@@ -108,12 +235,12 @@ describe.skipIf(!enabled)(
         .send({
           title: `Acceptance water sensors ${suffix}`,
           abstract:
-            "An original study evaluating campus water sensor leak detection.",
+            "An original study evaluating campus water sensor leak detection by testing the sensors and reporting their performance.",
           publicationDate: "2026-10-01",
           venue: "ZURC Test",
-          keywords: ["sensors"],
+          keywords: ["sensors", "leaks", "campus"],
           type: "REPORT",
-          areaIds: [],
+          areaIds: [areaId],
         })
         .expect(201);
       publicationId = draft.body.id;
@@ -122,6 +249,7 @@ describe.skipIf(!enabled)(
       expect(draft.body.workflowStatus).toBe("DRAFT");
       await request(app)
         .post(`/api/researcher/publications/${publicationId}/submit`)
+        .send({ confirmed: true })
         .auth(authorToken, { type: "bearer" })
         .expect(409);
       await request(app).get(`/api/publications/${slug}`).expect(404);
@@ -182,6 +310,7 @@ describe.skipIf(!enabled)(
       ).toBe(document.chunks.length);
       await request(app)
         .post(`/api/researcher/publications/${publicationId}/submit`)
+        .send({ confirmed: true })
         .auth(authorToken, { type: "bearer" })
         .expect(200);
       await request(app)
@@ -194,6 +323,7 @@ describe.skipIf(!enabled)(
         .expect(409);
       await request(app)
         .post(`/api/admin/publications/${publicationId}/publish`)
+        .send({ confirmed: true })
         .auth(authorToken, { type: "bearer" })
         .expect(403);
       await request(app)
@@ -203,13 +333,38 @@ describe.skipIf(!enabled)(
           question: "What results were reported?",
           sessionId: randomUUID(),
         })
-        .expect(404);
+        .expect(403);
       await request(app)
         .post(`/api/admin/publications/${publicationId}/publish`)
+        .send({ confirmed: true })
         .auth(adminToken, { type: "bearer" })
         .expect(200);
+      for (const [verb, action] of [
+        ["get", "document"],
+        ["get", "summary"],
+        ["post", "summary"],
+        ["post", "ask"],
+      ] as const) {
+        const body =
+          action === "ask"
+            ? { question: "What did the study find?", sessionId: randomUUID() }
+            : {};
+        const url = `/api/publications/${slug}/${action}`;
+        const send = () => request(app)[verb](url);
+        await send().send(body).expect(401);
+        await send()
+          .auth(visitorToken, { type: "bearer" })
+          .send(body)
+          .expect(403);
+      }
+      const publicDetail = await request(app)
+        .get(`/api/publications/${slug}`)
+        .expect(200);
+      expect(publicDetail.body.documentRestricted).toBe(true);
+      expect(publicDetail.body.document).toBeNull();
       const detail = await request(app)
         .get(`/api/publications/${slug}`)
+        .auth(outsiderToken, { type: "bearer" })
         .expect(200);
       expect(detail.body.documentCapabilities).toEqual({
         canRead: true,
@@ -218,22 +373,36 @@ describe.skipIf(!enabled)(
       });
       const pdf = await request(app)
         .get(`/api/publications/${slug}/document`)
+        .auth(outsiderToken, { type: "bearer" })
         .expect(200);
       expect(pdf.headers["content-type"]).toContain("application/pdf");
       expect(pdf.headers["x-content-type-options"]).toBe("nosniff");
       await request(app)
         .post(`/api/publications/${slug}/summary`)
+        .auth(authorToken, { type: "bearer" })
         .send({ detailLevel: "STANDARD" })
         .expect(202);
       await processNextSummary();
       const summary = await request(app)
         .get(`/api/publications/${slug}/summary?detailLevel=STANDARD`)
+        .auth(authorToken, { type: "bearer" })
         .expect(200);
       expect(summary.body.mode).toBe("FALLBACK");
       expect(summary.body.content.sourcePages).toContain(4);
+      const retry = await request(app)
+        .post(`/api/publications/${slug}/summary`)
+        .auth(authorToken, { type: "bearer" })
+        .send({ detailLevel: "STANDARD" })
+        .expect(202);
+      expect(retry.body).toMatchObject({
+        id: summary.body.id,
+        status: "PENDING",
+        mode: null,
+      });
       sessions.push(randomUUID());
       const answer = await request(app)
         .post(`/api/publications/${slug}/ask`)
+        .auth(authorToken, { type: "bearer" })
         .send({
           question: "What confirmed leaks were detected?",
           sessionId: sessions[0],
@@ -249,8 +418,14 @@ describe.skipIf(!enabled)(
         .post(`/api/admin/publications/${publicationId}/archive`)
         .auth(adminToken, { type: "bearer" })
         .expect(200);
-      await request(app).get(`/api/publications/${slug}/document`).expect(404);
-      await request(app).get(`/api/publications/${slug}/summary`).expect(404);
+      await request(app)
+        .get(`/api/publications/${slug}/document`)
+        .auth(outsiderToken, { type: "bearer" })
+        .expect(403);
+      await request(app)
+        .get(`/api/publications/${slug}/summary`)
+        .auth(outsiderToken, { type: "bearer" })
+        .expect(403);
       await request(app)
         .get(`/api/publications?q=${encodeURIComponent(suffix)}`)
         .expect(200)
@@ -302,10 +477,12 @@ describe.skipIf(!enabled)(
       await processNextDocument();
       await request(app)
         .post(`/api/researcher/publications/${publicationId}/submit`)
+        .send({ confirmed: true })
         .auth(authorToken, { type: "bearer" })
         .expect(200);
       await request(app)
         .post(`/api/admin/publications/${publicationId}/publish`)
+        .send({ confirmed: true })
         .auth(adminToken, { type: "bearer" })
         .expect(200);
       await request(app)

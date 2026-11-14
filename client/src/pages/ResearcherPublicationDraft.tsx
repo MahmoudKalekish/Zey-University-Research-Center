@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api, ApiError } from "../services/api";
-import type { Publication } from "../types";
+import { useFetch } from "../hooks/useFetch";
+import type { Area, Publication } from "../types";
 import { Container, Loading, PageHero } from "../components/ui";
 import { PublicationDocumentPanel } from "../components/PublicationDocumentPanel";
 interface DraftForm {
@@ -10,6 +11,7 @@ interface DraftForm {
   abstract: string;
   venue: string;
   keywords: string[];
+  areaIds: string[];
   publicationDate: string;
   type: string;
 }
@@ -18,6 +20,7 @@ const emptyDraft = (): DraftForm => ({
   abstract: "",
   venue: "",
   keywords: [],
+  areaIds: [],
   publicationDate: new Date().toISOString().slice(0, 10),
   type: "JOURNAL_ARTICLE",
 });
@@ -25,6 +28,7 @@ export function ResearcherPublicationDraft() {
   const { user, loading } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
+  const areas = useFetch<Area[]>("/areas");
   const [publication, setPublication] = useState<Publication>();
   const [form, setForm] = useState<DraftForm>(emptyDraft);
   const [fetching, setFetching] = useState(Boolean(id));
@@ -44,6 +48,7 @@ export function ResearcherPublicationDraft() {
           setKeywordsText(result.keywords.join(", "));
           setForm({
             ...result,
+            areaIds: (result.areas ?? []).map(({ area }) => area.id),
             publicationDate: result.publicationDate.slice(0, 10),
           });
         }
@@ -58,8 +63,9 @@ export function ResearcherPublicationDraft() {
       active = false;
     };
   }, [id, user]);
-  if (loading || fetching) return <Loading />;
+  if (loading) return <Loading />;
   if (user?.role !== "RESEARCHER") return <Navigate to="/login" />;
+  if (fetching) return <Loading />;
   const editable = !publication || publication.workflowStatus === "DRAFT";
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -79,8 +85,9 @@ export function ResearcherPublicationDraft() {
             abstract: form.abstract,
             venue: form.venue,
             keywords,
+            areaIds: form.areaIds,
           }
-        : { ...form, keywords, areaIds: [] };
+        : { ...form, keywords };
       const result = await api<Publication>(
         `/researcher/publications${publication ? `/${publication.id}` : ""}`,
         { method: editing ? "PUT" : "POST", body: JSON.stringify(input) },
@@ -120,6 +127,12 @@ export function ResearcherPublicationDraft() {
           <>
             <form onSubmit={save} className="form-card">
               <h2>Publication metadata</h2>
+              <p>
+                Before submission, provide an abstract covering the objective,
+                approach, and findings, at least three distinct keywords, a
+                research area, and a text-based PDF. Make sure your references
+                are complete and you have permission to share the work.
+              </p>
               {!editable && (
                 <p>
                   Metadata is locked after submission. Ask the administrator to
@@ -160,7 +173,7 @@ export function ResearcherPublicationDraft() {
                   )}
                 </label>
                 <label>
-                  Journal / conference
+                  Journal, conference, or publishing institution
                   <input
                     value={form.venue}
                     required
@@ -176,6 +189,29 @@ export function ResearcherPublicationDraft() {
                     value={keywordsText}
                     onChange={(event) => setKeywordsText(event.target.value)}
                   />
+                </label>
+                <label>
+                  Primary research area
+                  <select
+                    required
+                    disabled={areas.loading}
+                    value={form.areaIds[0] || ""}
+                    onChange={(event) =>
+                      setForm({ ...form, areaIds: [event.target.value] })
+                    }
+                  >
+                    <option value="" disabled>
+                      Choose a research area
+                    </option>
+                    {areas.data?.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </select>
+                  {areas.error && (
+                    <span className="field-error">{areas.error}</span>
+                  )}
                 </label>
                 {!publication && (
                   <div className="draft-metadata-grid">

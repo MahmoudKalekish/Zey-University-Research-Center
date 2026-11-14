@@ -113,6 +113,7 @@ export async function globalSearch(q: string, limit = 6) {
   const status = projectStatusFromQuery(phrase);
   const [publications, researchers, projects, areas] = await Promise.all([
     prisma.publication.findMany({
+      omit: { pdfUrl: true, reviewNote: true, authorAttestedAt: true },
       where: {
         workflowStatus: "PUBLISHED",
         OR: searchable.flatMap((term) => [
@@ -126,7 +127,7 @@ export async function globalSearch(q: string, limit = 6) {
       },
       include: {
         authors: {
-          include: { researcher: true },
+          include: { researcher: { omit: { userId: true, email: true } } },
           orderBy: { authorOrder: "asc" },
         },
         areas: { include: { area: true } },
@@ -136,6 +137,7 @@ export async function globalSearch(q: string, limit = 6) {
       orderBy: { publicationDate: "desc" },
     }),
     prisma.researcher.findMany({
+      omit: { userId: true, email: true },
       where: {
         active: true,
         OR: searchable.flatMap((term) => [
@@ -185,7 +187,9 @@ export async function globalSearch(q: string, limit = 6) {
           },
       include: {
         areas: { include: { area: true } },
-        researchers: { include: { researcher: true } },
+        researchers: {
+          include: { researcher: { omit: { userId: true, email: true } } },
+        },
       },
       take: limit,
       orderBy: { startDate: "desc" },

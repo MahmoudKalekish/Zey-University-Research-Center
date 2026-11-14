@@ -1,3 +1,4 @@
+import { requestLimit } from "../middleware/request-limit.js";
 import { Router } from "express";
 import { asyncHandler } from "../utils/http.js";
 import { loginSchema, registerSchema } from "../validation/schemas.js";
@@ -7,6 +8,7 @@ import { prisma } from "../config/db.js";
 export const authRouter = Router();
 authRouter.post(
   "/login",
+  requestLimit(30, 15 * 60_000),
   asyncHandler(async (req: any, res: any) =>
     res.json(
       await auth.login(
@@ -17,6 +19,7 @@ authRouter.post(
 );
 authRouter.post(
   "/register",
+  requestLimit(10, 60 * 60_000),
   asyncHandler(async (req: any, res: any) =>
     res.status(201).json(await auth.register(registerSchema.parse(req.body))),
   ),

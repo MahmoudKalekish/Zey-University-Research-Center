@@ -14,6 +14,10 @@ import {
   publicationDocumentRouter,
   researcherPublicationDocumentRouter,
 } from "./routes/publication-document.routes.js";
+import {
+  researcherApplicationAdminRouter,
+  researcherApplicationRouter,
+} from "./routes/researcher-application.routes.js";
 export const app = express();
 app.use(helmet());
 app.use(
@@ -35,6 +39,8 @@ app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(optionalAuth);
 app.get("/api/health", (_q, r) => r.json({ status: "ok" }));
 app.use("/api/auth", authRouter);
+app.use("/api/researcher-applications", researcherApplicationRouter);
+app.use("/api/admin/researcher-applications", researcherApplicationAdminRouter);
 app.use("/api/publications", publicationDocumentRouter);
 app.use("/api/admin", adminPublicationDocumentRouter, adminRouter);
 app.use(

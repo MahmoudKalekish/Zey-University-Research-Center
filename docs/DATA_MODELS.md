@@ -1,6 +1,6 @@
 # ZURC conceptual and logical data models
 
-Schema snapshot: 1 October 2026; derived from server/prisma/schema.prisma and the two committed PostgreSQL migrations. **19 tables, 11 enums, 168 stored fields.** The source schema is authoritative after future changes. These models describe implemented storage, not proposed additions.
+Verified against the current [Prisma schema](../server/prisma/schema.prisma), [PostgreSQL migrations](../server/prisma/migrations), and application code. The application uses **19 tables, 168 stored fields, 17 foreign keys, and 5 pivot tables**. Prisma’s `_prisma_migrations` bookkeeping table is outside the application model.
 
 ## Reading the models
 
@@ -50,9 +50,283 @@ EVENT, NEWS, RESOURCE and CONTACT_MESSAGE are standalone entities in the current
 
 Conceptual association attributes: authorship has authorOrder and corresponding; project participation has an optional role. The remaining many-to-many associations have no non-key attributes.
 
+## Relationship inventory
+
+Cardinalities in the two middle columns are read as **“for one row of this table, how many rows of the other table can it have?”** They describe database constraints; a screen can enforce stricter rules.
+
+| Relationship | Right rows per left row | Left rows per right row | Foreign key |
+| --- | --- | --- | --- |
+| `User` → `Researcher` (optional 1:1) | `0..1` | `0..1` | `Researcher.userId` → `User.id` |
+| `User` → `AiConversation` (1:N) | `0..N` | `0..1` | `AiConversation.userId` → `User.id` |
+| `AiConversation` → `AiMessage` (1:N) | `0..N` | `1` | `AiMessage.conversationId` → `AiConversation.id` |
+| `Researcher` → `ResearcherArea` (1:N) | `0..N` | `1` | `ResearcherArea.researcherId` → `Researcher.id` |
+| `ResearchArea` → `ResearcherArea` (1:N) | `0..N` | `1` | `ResearcherArea.areaId` → `ResearchArea.id` |
+| `Project` → `ProjectArea` (1:N) | `0..N` | `1` | `ProjectArea.projectId` → `Project.id` |
+| `ResearchArea` → `ProjectArea` (1:N) | `0..N` | `1` | `ProjectArea.areaId` → `ResearchArea.id` |
+| `Project` → `ProjectResearcher` (1:N) | `0..N` | `1` | `ProjectResearcher.projectId` → `Project.id` |
+| `Researcher` → `ProjectResearcher` (1:N) | `0..N` | `1` | `ProjectResearcher.researcherId` → `Researcher.id` |
+| `Project` → `Publication` (1:N) | `0..N` | `0..1` | `Publication.projectId` → `Project.id` |
+| `Publication` → `PublicationAuthor` (1:N) | `0..N` | `1` | `PublicationAuthor.publicationId` → `Publication.id` |
+| `Researcher` → `PublicationAuthor` (1:N) | `0..N` | `1` | `PublicationAuthor.researcherId` → `Researcher.id` |
+| `Publication` → `PublicationArea` (1:N) | `0..N` | `1` | `PublicationArea.publicationId` → `Publication.id` |
+| `ResearchArea` → `PublicationArea` (1:N) | `0..N` | `1` | `PublicationArea.areaId` → `ResearchArea.id` |
+| `Publication` → `PublicationDocument` (optional 1:1) | `0..1` | `1` | `PublicationDocument.publicationId` → `Publication.id` |
+| `PublicationDocument` → `DocumentChunk` (1:N) | `0..N` | `1` | `DocumentChunk.documentId` → `PublicationDocument.id` |
+| `PublicationDocument` → `PublicationSummary` (1:N) | `0..3` | `1` | `PublicationSummary.documentId` → `PublicationDocument.id` |
+
+There can be up to three summary rows per document: one each for `SHORT`, `STANDARD`, and `DETAILED`. The crow’s-foot shows the general one-to-many pattern; the unique pair `(documentId, detailLevel)` enforces this specific limit.
+
+| Many-to-many association (both sides `0..N`) | Pivot table | Composite PK (each member is also an FK) | Other fields |
+| --- | --- | --- | --- |
+| `Researcher` ↔ `ResearchArea` | `ResearcherArea` | `researcherId`, `areaId` | — |
+| `Project` ↔ `ResearchArea` | `ProjectArea` | `projectId`, `areaId` | — |
+| `Project` ↔ `Researcher` | `ProjectResearcher` | `projectId`, `researcherId` | `role` (optional) |
+| `Publication` ↔ `Researcher` | `PublicationAuthor` | `publicationId`, `researcherId` | `authorOrder`, `corresponding` |
+| `Publication` ↔ `ResearchArea` | `PublicationArea` | `publicationId`, `areaId` | — |
+
+| Standalone table | Where the application uses it |
+| --- | --- |
+| `Event` | Public events and admin event management |
+| `News` | Public news and admin news management |
+| `Resource` | Public resources and admin resource management |
+| `ContactMessage` | Public Contact form and Admin → Messages |
+
+The other 15 tables form one connected group. The four standalone tables are included for completeness and have no connecting lines. For example, `ContactMessage.email` is a submitted address, with no FK to `User.email`.
+
 ## Logical model — MLD
 
 Full editable Mermaid source: [zurc-logical.mmd](diagrams/zurc-logical.mmd). Conceptual source: [zurc-conceptual.mmd](diagrams/zurc-conceptual.mmd). Paste these into a Mermaid-capable editor to export SVG/PDF for the report. Prefer landscape pages and the domain panels below for legibility; do not shrink all 19 tables onto one portrait page.
+
+### Full diagram — all tables, fields and keys
+
+Each box uses the actual table and column names. `PK,FK` means a column is both a foreign key and part of a composite primary key; the two marked columns together make the key. `FK,UK` means a unique foreign key. The panels that follow show the same model at a more readable scale.
+
+```mermaid
+erDiagram
+    User {
+        String id PK
+        String email UK
+        String passwordHash
+        String firstName
+        String lastName
+        Role role
+        Boolean active
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Researcher {
+        String id PK
+        String userId FK,UK "nullable"
+        String name
+        String slug UK
+        String biography
+        String position
+        String email UK
+        String photoUrl "nullable"
+        String affiliation
+        String orcid UK "nullable"
+        String linkedInUrl "nullable"
+        String scholarUrl "nullable"
+        String_array interests "list; SQL column nullable"
+        Boolean active
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ResearchArea {
+        String id PK
+        String name UK
+        String slug UK
+        String description
+        String icon
+        String imageUrl "nullable"
+        String_array objectives "list; SQL column nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ResearcherArea {
+        String researcherId PK,FK
+        String areaId PK,FK
+    }
+    Project {
+        String id PK
+        String title
+        String slug UK
+        String description
+        String abstract
+        String_array objectives "list; SQL column nullable"
+        DateTime startDate
+        DateTime endDate "nullable"
+        ProjectStatus status
+        String funding "nullable"
+        Boolean featured
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ProjectArea {
+        String projectId PK,FK
+        String areaId PK,FK
+    }
+    ProjectResearcher {
+        String projectId PK,FK
+        String researcherId PK,FK
+        String role "nullable"
+    }
+    Publication {
+        String id PK
+        String title
+        String slug UK
+        String abstract
+        DateTime publicationDate
+        String doi UK "nullable"
+        String venue
+        String_array keywords "list; SQL column nullable"
+        PublicationType type
+        String pdfUrl "nullable"
+        String externalUrl "nullable"
+        Boolean featured
+        String projectId FK "nullable"
+        PublicationWorkflowStatus workflowStatus
+        DateTime submittedAt "nullable"
+        DateTime publishedAt "nullable"
+        DateTime archivedAt "nullable"
+        DateTime reviewedAt "nullable"
+        String reviewNote "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    PublicationDocument {
+        String id PK
+        String publicationId FK,UK
+        String originalName
+        String storageKey UK
+        String mimeType
+        Int sizeBytes
+        String sha256
+        Int pageCount "nullable"
+        Int characterCount "nullable"
+        DocumentProcessingStatus status
+        String failureCode "nullable"
+        String failureMessage "nullable"
+        DateTime processedAt "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    DocumentChunk {
+        String id PK
+        String documentId FK
+        Int chunkIndex
+        Int pageStart
+        Int pageEnd
+        String sectionTitle "nullable"
+        String content
+        String normalizedText
+        Int tokenEstimate
+        DateTime createdAt
+    }
+    PublicationSummary {
+        String id PK
+        String documentId FK
+        SummaryDetailLevel detailLevel
+        SummaryProcessingStatus status
+        String model "nullable"
+        SummaryMode mode "nullable"
+        Json content "nullable"
+        Int_array sourcePages "list; SQL column nullable"
+        String failureCode "nullable"
+        String failureMessage "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    PublicationAuthor {
+        String publicationId PK,FK
+        String researcherId PK,FK
+        Int authorOrder
+        Boolean corresponding
+    }
+    PublicationArea {
+        String publicationId PK,FK
+        String areaId PK,FK
+    }
+    Event {
+        String id PK
+        String title
+        String slug UK
+        String description
+        DateTime startDate
+        DateTime endDate "nullable"
+        String location
+        String imageUrl "nullable"
+        String registrationUrl "nullable"
+        Boolean published
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    News {
+        String id PK
+        String title
+        String slug UK
+        String excerpt
+        String content
+        String imageUrl "nullable"
+        DateTime publishedAt "nullable"
+        Boolean published
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Resource {
+        String id PK
+        String title
+        String description
+        ResourceType type
+        String url
+        Boolean published
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    ContactMessage {
+        String id PK
+        String name
+        String email
+        String subject
+        String message
+        MessageStatus status
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    AiConversation {
+        String id PK
+        String userId FK "nullable"
+        String sessionId
+        String title "nullable"
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    AiMessage {
+        String id PK
+        String conversationId FK
+        AiRole role
+        String content
+        Json sources "nullable"
+        DateTime createdAt
+    }
+    User |o--o| Researcher : "user"
+    Researcher ||--o{ ResearcherArea : "researcher"
+    ResearchArea ||--o{ ResearcherArea : "area"
+    Project ||--o{ ProjectArea : "project"
+    ResearchArea ||--o{ ProjectArea : "area"
+    Project ||--o{ ProjectResearcher : "project"
+    Researcher ||--o{ ProjectResearcher : "researcher"
+    Project |o--o{ Publication : "project"
+    Publication ||--o| PublicationDocument : "publication"
+    PublicationDocument ||--o{ DocumentChunk : "document"
+    PublicationDocument ||--o{ PublicationSummary : "document"
+    Publication ||--o{ PublicationAuthor : "publication"
+    Researcher ||--o{ PublicationAuthor : "researcher"
+    Publication ||--o{ PublicationArea : "publication"
+    ResearchArea ||--o{ PublicationArea : "area"
+    User |o--o{ AiConversation : "user"
+    AiConversation ||--o{ AiMessage : "conversation"
+```
 
 ### Accounts and research catalogue
 

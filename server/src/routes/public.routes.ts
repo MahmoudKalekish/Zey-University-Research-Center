@@ -1,3 +1,4 @@
+import { requestLimit } from "../middleware/request-limit.js";
 import { Router } from "express";
 import * as c from "../controllers/public.controller.js";
 import { asyncHandler } from "../utils/http.js";
@@ -24,6 +25,7 @@ publicRouter.get(
 );
 publicRouter.post(
   "/contact",
+  requestLimit(12, 60 * 60_000),
   asyncHandler(async (req: any, res: any) => {
     const data = contactSchema.parse(req.body);
     res.status(201).json(await prisma.contactMessage.create({ data }));
@@ -31,6 +33,7 @@ publicRouter.post(
 );
 publicRouter.post(
   "/ai/ask",
+  requestLimit(30, 60_000),
   asyncHandler(async (req: any, res: any) => {
     const data = chatSchema.parse(req.body);
     res.json(

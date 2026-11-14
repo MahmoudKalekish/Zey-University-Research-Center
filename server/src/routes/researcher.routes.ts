@@ -95,20 +95,35 @@ researcherRouter.put(
       select: { workflowStatus: true },
     });
     assertResearcherCanEdit(publication.workflowStatus);
-    const data = z
+    const { areaIds, ...data } = z
       .object({
         title: z.string().min(3).optional(),
         abstract: z.string().min(20).optional(),
         venue: z.string().min(2).optional(),
         keywords: z.array(z.string()).optional(),
-        pdfUrl: z.string().url().nullable().optional(),
+        areaIds: z.array(z.string()).min(1).max(8).optional(),
         externalUrl: z.string().url().nullable().optional(),
       })
       .parse(req.body);
     res.json(
-      await prisma.publication.update({
-        where: { id: req.params.id },
-        data: { ...data, ...(data.title && { slug: slugify(data.title) }) },
+      await prisma.$transaction(async (tx) => {
+        if (areaIds)
+          await tx.publicationArea.deleteMany({
+            where: { publicationId: req.params.id },
+          });
+        return tx.publication.update({
+          where: { id: req.params.id, workflowStatus: "DRAFT" },
+          data: {
+            ...data,
+            ...(data.title && { slug: slugify(data.title) }),
+            ...(areaIds && {
+              areas: {
+                create: [...new Set(areaIds)].map((areaId) => ({ areaId })),
+              },
+            }),
+          },
+          include: { areas: { include: { area: true } } },
+        });
       }),
     );
   }),

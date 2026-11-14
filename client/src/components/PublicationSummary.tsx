@@ -1,3 +1,4 @@
+import { AnswerText } from "./AnswerText";
 import { useState } from "react";
 import { useProcessingResource } from "../hooks/useProcessingResource";
 import {
@@ -11,7 +12,6 @@ import {
   type StructuredSummary,
 } from "../types/publication-document";
 import { PageEvidence } from "./PageEvidence";
-const levels: SummaryDetailLevel[] = ["SHORT", "STANDARD", "DETAILED"];
 const sections = [
   ["inShort", "In Short"],
   ["researchObjective", "Research Objective"],
@@ -68,11 +68,18 @@ function SummaryLevel({
           {job.data.failureMessage || "Summary generation failed."}
         </p>
       )}
-      {!job.loading && (!job.data || job.data.status === "FAILED") && (
-        <button className="button" onClick={generate} disabled={busy}>
-          {busy ? "Queuing…" : "Generate summary"}
-        </button>
-      )}
+      {!job.loading &&
+        (!job.data ||
+          job.data.status === "FAILED" ||
+          job.data.mode === "FALLBACK") && (
+          <button className="button" onClick={generate} disabled={busy}>
+            {busy
+              ? "Queuing…"
+              : job.data
+                ? "Retry summary"
+                : "Generate summary"}
+          </button>
+        )}
       {job.data?.status === "READY" && content && (
         <>
           <p className="status">
@@ -88,7 +95,7 @@ function SummaryLevel({
               {content.evidence.map((item, index) => (
                 <section key={index} className="summary-section">
                   <h3>{item.section}</h3>
-                  <p>{item.text}</p>
+                  <AnswerText text={item.text} />
                   <PageEvidence
                     managed={managed}
                     slug={slug}
@@ -105,7 +112,7 @@ function SummaryLevel({
                   section && (
                     <section className="summary-section" key={key}>
                       <h3>{label}</h3>
-                      <p>{section.text}</p>
+                      <AnswerText text={section.text} />
                       <PageEvidence
                         managed={managed}
                         slug={slug}
@@ -141,7 +148,7 @@ export function PublicationSummary({
   available: boolean;
   managed?: boolean;
 }) {
-  const [level, setLevel] = useState<SummaryDetailLevel>("STANDARD");
+  const level = "STANDARD";
   if (!available)
     return (
       <section className="document-card">
@@ -159,18 +166,6 @@ export function PublicationSummary({
         Read the uploaded paper in brief or explore its methods and findings.
         References open the supporting PDF pages.
       </p>
-      <div className="document-actions" aria-label="Summary detail">
-        {levels.map((value) => (
-          <button
-            key={value}
-            className={`button ${level === value ? "" : "ghost"}`}
-            aria-pressed={level === value}
-            onClick={() => setLevel(value)}
-          >
-            {value[0] + value.slice(1).toLowerCase()}
-          </button>
-        ))}
-      </div>
       <SummaryLevel
         key={`${slug}-${level}`}
         slug={slug}

@@ -1,8 +1,10 @@
+import { useState } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { PublicationSummary } from "../components/PublicationSummary";
 import { DocumentQuestionPanel } from "../components/DocumentQuestionPanel";
-import { pdfUrl } from "../services/publication-documents";
+import { openManagedPdf } from "../services/publication-documents";
 import { useParams, Link } from "react-router-dom";
-import { Mail, ExternalLink, CalendarDays, Users } from "lucide-react";
+import { ExternalLink, CalendarDays, Users } from "lucide-react";
 import { useFetch } from "../hooks/useFetch";
 import { Container, ErrorState, Loading, Badge } from "../components/ui";
 import { PublicationCard, ResearcherCard } from "../components/Cards";
@@ -39,9 +41,6 @@ export function ResearcherDetail() {
             <h1>{x.name}</h1>
             <h3>{x.position}</h3>
             <p>{x.affiliation}</p>
-            <a href={`mailto:${x.email}`}>
-              <Mail /> {x.email}
-            </a>
           </div>
         </Container>
       </header>
@@ -145,12 +144,14 @@ export function ProjectDetail() {
   );
 }
 export function PublicationDetail() {
+  const { user } = useAuth();
+  const [pdfError, setPdfError] = useState("");
   const { slug } = useParams();
   const {
     data: x,
     loading,
     error,
-  } = useFetch<Publication>(`/publications/${slug}`);
+  } = useFetch<Publication>(`/publications/${slug}`, user?.role);
   if (loading) return <Loading />;
   if (error || !x)
     return (
@@ -171,14 +172,18 @@ export function PublicationDetail() {
         <article>
           <div className="document-actions">
             {x.documentCapabilities?.canRead && (
-              <a
+              <button
                 className="button"
-                href={pdfUrl(x.slug)}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                onClick={() => {
+                  setPdfError("");
+                  void openManagedPdf(x.slug).catch((error: Error) =>
+                    setPdfError(error.message),
+                  );
+                }}
               >
                 Read PDF
-              </a>
+              </button>
             )}
             {x.documentCapabilities?.canAsk && (
               <Link
@@ -189,6 +194,7 @@ export function PublicationDetail() {
               </Link>
             )}
           </div>
+          {pdfError && <p role="alert">{pdfError}</p>}
           <h2>Abstract</h2>
           <p>{x.abstract}</p>
           <h2>Keywords</h2>
@@ -197,10 +203,23 @@ export function PublicationDetail() {
               <Badge key={k}>{k}</Badge>
             ))}
           </div>
-          <PublicationSummary
-            slug={x.slug}
-            available={Boolean(x.documentCapabilities?.canSummarize)}
-          />
+          {x.documentRestricted ? (
+            <section className="document-card">
+              <h2>Restricted document</h2>
+              <p>
+                The PDF and its analysis are available to approved researchers
+                and administrators.
+              </p>
+              <Link to={user ? "/researcher-application" : "/login"}>
+                {user ? "Apply for researcher access" : "Sign in"}
+              </Link>
+            </section>
+          ) : (
+            <PublicationSummary
+              slug={x.slug}
+              available={Boolean(x.documentCapabilities?.canSummarize)}
+            />
+          )}
           {x.documentCapabilities?.canAsk && (
             <DocumentQuestionPanel key={x.slug} slug={x.slug} title={x.title} />
           )}

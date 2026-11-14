@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import {
   Search,
@@ -106,6 +107,13 @@ export function Contact() {
       <Container className="contact-grid">
         <div>
           <h2>Contact details</h2>
+          <p>
+            Looking to join?{" "}
+            <Link to="/researcher-application">
+              Apply for researcher access
+            </Link>
+            .
+          </p>
           <p>
             <MapPin /> Science Campus, Beirut
           </p>

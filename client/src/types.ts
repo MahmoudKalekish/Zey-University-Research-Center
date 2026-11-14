@@ -46,6 +46,7 @@ export type Publication = {
     DocumentStatus,
     "id" | "status" | "originalName" | "sizeBytes" | "pageCount"
   > | null;
+  documentRestricted?: boolean;
   documentCapabilities?: {
     canRead: boolean;
     canSummarize: boolean;

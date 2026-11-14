@@ -1,3 +1,4 @@
+import { ResearcherApplicationReview } from "../components/ResearcherApplicationReview";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
@@ -29,6 +30,7 @@ const sections = [
   ["news", "News", Newspaper],
   ["resources", "Resources", Library],
   ["messages", "Messages", MessageSquare],
+  ["researcher-applications", "Researcher applications", Users],
 ];
 export function Admin() {
   const { user, loading, logout } = useAuth();
@@ -41,7 +43,7 @@ export function Admin() {
     [editing, setEditing] = useState<any | null>(null),
     [pendingDelete, setPendingDelete] = useState<any | null>(null);
   useEffect(() => {
-    if (user?.role !== "ADMIN") return;
+    if (user?.role !== "ADMIN" || active === "researcher-applications") return;
     setBusy(true);
     setError("");
     api<any>(active === "dashboard" ? "/admin/stats" : `/admin/${active}`)
@@ -89,7 +91,7 @@ export function Admin() {
             </button>
           ))}
         </nav>
-        <button onClick={logout}>
+        <button className="admin-sign-out" onClick={logout} title="Sign out">
           <LogOut />
           Sign out
         </button>
@@ -106,14 +108,18 @@ export function Admin() {
                   )}
             </h1>
           </div>
-          {active !== "dashboard" && active !== "messages" && (
-            <button className="button small" onClick={() => setEditing({})}>
-              <Plus />
-              Add record
-            </button>
-          )}
+          {active !== "dashboard" &&
+            active !== "messages" &&
+            active !== "researcher-applications" && (
+              <button className="button small" onClick={() => setEditing({})}>
+                <Plus />
+                Add record
+              </button>
+            )}
         </header>
-        {busy ? (
+        {active === "researcher-applications" ? (
+          <ResearcherApplicationReview />
+        ) : busy ? (
           <Loading />
         ) : error ? (
           <ErrorState text={error} />

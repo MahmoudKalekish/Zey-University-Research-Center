@@ -51,6 +51,9 @@ export const documentQuestionSchema = z.object({
 export const summaryRequestSchema = z.object({
   detailLevel: z.enum(["SHORT", "STANDARD", "DETAILED"]).default("STANDARD"),
 });
+export const publicationConfirmationSchema = z.object({
+  confirmed: z.literal(true),
+});
 export const publicationReturnSchema = z.object({
   reviewNote: z
     .string()
@@ -154,4 +157,6 @@ export const publicationSchema = z.object({
 });
 export const researcherPublicationDraftSchema = publicationSchema.omit({
   authorIds: true,
+  pdfUrl: true,
+  featured: true,
 });

@@ -58,6 +58,7 @@ describe("document management", () => {
     );
     await screen.findByText(/12 pages/);
     expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Submit for review" }));
     await waitFor(() =>
       expect(api).toHaveBeenCalledWith(

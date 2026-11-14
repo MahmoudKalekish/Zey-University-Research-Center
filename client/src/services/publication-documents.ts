@@ -32,10 +32,11 @@ export const transitionPublication = (
   action: string,
   administrator: boolean,
   reviewNote?: string,
+  confirmed?: boolean,
 ) =>
   api<ManagedPublication>(
     `/${administrator ? "admin" : "researcher"}/publications/${encodeURIComponent(id)}/${action}`,
-    { method: "POST", body: JSON.stringify({ reviewNote }) },
+    { method: "POST", body: JSON.stringify({ reviewNote, confirmed }) },
   );
 export const requestSummary = (slug: string, detailLevel: SummaryDetailLevel) =>
   api<SummaryStatus>(`${publicationPath(slug)}/summary`, {

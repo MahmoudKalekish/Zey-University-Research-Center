@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../services/api";
-export function useFetch<T>(path: string) {
+export function useFetch<T>(path: string, refreshKey?: string) {
   const [data, setData] = useState<T>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,6 +15,6 @@ export function useFetch<T>(path: string) {
     return () => {
       live = false;
     };
-  }, [path]);
+  }, [path, refreshKey]);
   return { data, loading, error };
 }

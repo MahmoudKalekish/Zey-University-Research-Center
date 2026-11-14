@@ -93,11 +93,18 @@ const summaryRepository: SummaryRepository = {
       where: { documentId_detailLevel: { documentId, detailLevel } },
       select: summarySelect,
     });
-    if (existing && existing.status !== "FAILED")
+    if (
+      existing &&
+      existing.status !== "FAILED" &&
+      existing.mode !== "FALLBACK"
+    )
       return existing as SummaryStatusRecord;
     if (existing) {
-      return prisma.publicationSummary.update({
-        where: { id: existing.id },
+      await prisma.publicationSummary.updateMany({
+        where: {
+          id: existing.id,
+          OR: [{ status: "FAILED" }, { status: "READY", mode: "FALLBACK" }],
+        },
         data: {
           status: "PENDING",
           mode: null,
@@ -106,11 +113,16 @@ const summaryRepository: SummaryRepository = {
           failureCode: null,
           failureMessage: null,
         },
+      });
+      return prisma.publicationSummary.findUniqueOrThrow({
+        where: { id: existing.id },
         select: summarySelect,
       }) as Promise<SummaryStatusRecord>;
     }
-    return prisma.publicationSummary.create({
-      data: { documentId, detailLevel },
+    return prisma.publicationSummary.upsert({
+      where: { documentId_detailLevel: { documentId, detailLevel } },
+      create: { documentId, detailLevel },
+      update: {},
       select: summarySelect,
     }) as Promise<SummaryStatusRecord>;
   },
@@ -213,6 +225,7 @@ export function createSummaryJobService({
         await repository.ready(job.id, content, "OLLAMA", env.OLLAMA_MODEL);
       } catch (error) {
         if (error instanceof LocalGenerationError) {
+          console.warn("Publication summary fell back:", error.code);
           await repository.ready(
             job.id,
             buildSummaryFallback(job.publication, job.chunks, job.detailLevel),

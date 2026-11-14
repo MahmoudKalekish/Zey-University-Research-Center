@@ -158,10 +158,12 @@ describe("publication document routes", () => {
       .expect(202);
     await request(app)
       .post("/api/researcher/publications/pub-1/submit")
+      .send({ confirmed: true })
       .expect(200);
     await request(app)
       .post("/api/admin/publications/pub-1/publish")
       .set("x-role", "ADMIN")
+      .send({ confirmed: true })
       .expect(200);
     await request(app)
       .post("/api/admin/publications/pub-1/return")
@@ -183,6 +185,7 @@ describe("publication document routes", () => {
       "author",
       "ADMIN",
       undefined,
+      true,
     );
   });
 

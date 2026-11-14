@@ -84,6 +84,11 @@ adminRouter.post(
   "/users",
   asyncHandler(async (req: any, res: any) => {
     const d = userSchema.parse(req.body);
+    if (d.role === "RESEARCHER")
+      throw new HttpError(
+        422,
+        "Create a visitor account and approve its researcher application.",
+      );
     if (!d.password) throw new HttpError(422, "Password is required");
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -101,7 +106,6 @@ adminRouter.post(
           active: true,
         },
       });
-      if (created.role === "RESEARCHER") await ensureResearcherProfile(tx, created);
       return created;
     });
     res.status(201).json(user);
@@ -123,7 +127,7 @@ adminRouter.put(
           where: { publicationId: req.params.id },
         });
       return tx.publication.update({
-        where: { id: req.params.id },
+        where: { id: req.params.id, workflowStatus: "DRAFT" },
         data: {
           ...data,
           ...(data.title && { slug: slugify(data.title) }),
@@ -239,8 +243,22 @@ adminRouter.put(
       data: any = { ...d, password: undefined };
     if (d.password) data.passwordHash = await bcrypt.hash(d.password, 12);
     const user = await prisma.$transaction(async (tx) => {
+      if (d.role === "RESEARCHER") {
+        const current = await tx.user.findUniqueOrThrow({
+          where: { id: req.params.id },
+          select: { role: true },
+        });
+        if (current.role !== "RESEARCHER")
+          throw new HttpError(
+            409,
+            "Approve a verified researcher application to grant researcher access.",
+          );
+      }
       const updated = await tx.user.update({
-        where: { id: req.params.id },
+        where: {
+          id: req.params.id,
+          ...(d.role === "RESEARCHER" && { role: "RESEARCHER" }),
+        },
         data,
         select: {
           id: true,
@@ -251,7 +269,8 @@ adminRouter.put(
           active: true,
         },
       });
-      if (updated.role === "RESEARCHER") await ensureResearcherProfile(tx, updated);
+      if (updated.role === "RESEARCHER")
+        await ensureResearcherProfile(tx, updated);
       return updated;
     });
     res.json(user);

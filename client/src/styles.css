@@ -944,51 +944,112 @@ img {
   padding: 1.5rem;
   background: #f7f9f8;
 }
+.messages {
+  position: relative;
+  scrollbar-gutter: stable;
+}
 .message {
-  margin-bottom: 1rem;
-}
-.message > div {
   display: flex;
-  gap: 0.6rem;
   align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 1.15rem;
 }
-.message p {
-  padding: 1rem;
-  border-radius: 5px 15px 15px 15px;
-  background: white;
-  margin: 0;
-  line-height: 1.6;
-  max-width: 80%;
-}
-.message.user > div {
+.message.user {
   justify-content: flex-end;
 }
-.message.user p {
-  background: var(--teal);
-  color: white;
+.assistant-avatar {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  border-radius: 50%;
+  background: #e5f3ef;
+  color: var(--teal);
+}
+.message-bubble {
+  min-width: 0;
+  max-width: min(100%, 68ch);
+  padding: 0.95rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 5px 15px 15px 15px;
+  background: white;
+}
+.message.user .message-bubble {
+  max-width: 88%;
+  background: #e5f3ef;
+  border-color: #d0e5df;
   border-radius: 15px 5px 15px 15px;
 }
-.message svg {
-  color: var(--teal);
-  margin-top: 1rem;
-}
-.sources {
-  margin: 8px 0 0 30px !important;
-  padding: 0 !important;
-}
-.sources small {
+.message-author {
   display: block;
-  color: var(--muted);
-  font-size: 0.62rem;
-}
-.sources a {
-  display: inline-block;
-  background: #e4f2ee;
+  margin-bottom: 0.45rem;
+  font-size: 0.75rem;
   color: var(--teal);
-  padding: 0.4rem 0.6rem;
-  margin: 0.3rem 0.2rem 0 0;
-  border-radius: 5px;
-  font-size: 0.74rem;
+  font-weight: 700;
+}
+.message-question,
+.message .dots {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.answer-sources {
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+}
+.answer-sources h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+.answer-sources h3 span {
+  font-size: 0.72rem;
+  margin-left: 0.3rem;
+  padding: 0.15em 0.48em;
+  border-radius: 20px;
+  color: var(--teal);
+  background: #e5f3ef;
+}
+.answer-sources ul {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  list-style: none;
+}
+.answer-sources a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.answer-sources a:hover {
+  background: #edf7f4;
+}
+.answer-sources a:focus-visible,
+.answer-evidence summary:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.answer-sources a small {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.answer-sources a strong {
+  color: var(--teal);
+  font-size: 0.85rem;
+}
+.answer-sources svg {
+  flex-shrink: 0;
+  color: var(--teal);
 }
 .suggestions {
   display: flex;
@@ -1253,6 +1314,12 @@ img {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
+}
+.admin-shell > aside .brand,
+.admin-shell > aside .admin-sign-out,
+.admin-shell > aside nav button {
+  flex-shrink: 0;
 }
 .admin-shell > aside nav {
   display: flex;
@@ -1260,6 +1327,31 @@ img {
   gap: 0.2rem;
   margin-top: 2.5rem;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #527b7d transparent;
+}
+.admin-shell > aside nav:hover,
+.admin-shell > aside nav:focus-within {
+  scrollbar-color: #84aeab transparent;
+}
+.admin-shell > aside nav::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.admin-shell > aside nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-shell > aside nav::-webkit-scrollbar-thumb {
+  background: #527b7d;
+  border-radius: 999px;
+}
+.admin-shell > aside nav::-webkit-scrollbar-thumb:hover {
+  background: #84aeab;
+}
+.admin-shell > aside .admin-sign-out {
+  margin-top: 0.5rem;
 }
 .admin-shell > aside button {
   border: 0;
@@ -1772,8 +1864,8 @@ td small {
     height: 410px;
     padding: 1rem;
   }
-  .message p {
-    max-width: 92%;
+  .message-bubble {
+    padding: 0.8rem;
   }
   .auth-page > .container {
     gap: 2rem;
@@ -1792,7 +1884,7 @@ td small {
     padding: 0.5rem 1rem;
     flex-direction: row;
     align-items: center;
-    overflow-x: auto;
+    gap: 0.5rem;
   }
   .admin-shell > aside .brand {
     display: none;
@@ -1800,6 +1892,12 @@ td small {
   .admin-shell > aside nav {
     margin: 0;
     flex-direction: row;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .admin-shell > aside .admin-sign-out {
+    margin-top: 0;
   }
   .admin-shell > aside nav button {
     min-width: 42px;
@@ -2036,4 +2134,105 @@ td small {
 }
 .admin-editor > form > footer .message-reply {
   margin-right: auto;
+}
+
+.password-input {
+  position: relative;
+  display: block;
+}
+.password-input input {
+  width: 100%;
+  padding-inline-end: 3rem;
+}
+.password-input button {
+  position: absolute;
+  inset-inline-end: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.answer-text {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  max-width: 68ch;
+}
+.answer-text > * {
+  margin: 0 0 0.75rem;
+}
+.answer-text > :last-child {
+  margin-bottom: 0;
+}
+.answer-text h4 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.answer-text ul,
+.answer-text ol {
+  padding-inline-start: 1.4rem;
+}
+.answer-text li + li {
+  margin-top: 0.35rem;
+}
+.answer-text li::marker {
+  color: var(--teal);
+}
+.answer-text code {
+  padding: 0.08em 0.25em;
+  border-radius: 0.25rem;
+  background: #edf4f5;
+}
+.document-answer-header {
+  background: #edf4f5;
+  padding: 0.75rem 1rem;
+  border-radius: 0.65rem;
+  margin-bottom: 1rem;
+}
+.document-answer-header h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.answer-mode {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.answer-evidence {
+  margin-top: 1rem;
+}
+.answer-evidence summary {
+  cursor: pointer;
+  color: var(--teal);
+  font-weight: 600;
+}
+.answer-evidence blockquote p {
+  overflow-wrap: anywhere;
+}
+.form-card .check-field,
+.check-field {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-block: 0.8rem;
+}
+.check-field input[type="checkbox"] {
+  flex: none;
+  width: auto;
+  margin-top: 0.3rem;
+}
+.application-queue {
+  display: grid;
+  gap: 1rem;
+}
+.application-queue summary {
+  cursor: pointer;
+}
+.application-queue details {
+  overflow-wrap: anywhere;
 }

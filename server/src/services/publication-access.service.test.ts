@@ -77,15 +77,33 @@ describe("publication access policy", () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
-  it("hides drafts publicly but permits their author or an administrator", async () => {
+  it("restricts published documents to active researchers and administrators, and limits drafts to their authors", async () => {
     await expect(
-      service().requirePublicOrManagerAccess("draft"),
-    ).rejects.toMatchObject({ status: 404 });
+      service().requirePublicationDocumentAccess("published"),
+    ).rejects.toMatchObject({ status: 401 });
+    const visitor = service({
+      id: "visitor",
+      role: "VISITOR",
+      active: true,
+      researcherId: null,
+    });
     await expect(
-      service().requirePublicOrManagerAccess("published"),
+      visitor.requirePublicationDocumentAccess("published", "visitor"),
+    ).rejects.toMatchObject({ status: 403 });
+    const other = service({
+      id: "other",
+      role: "RESEARCHER",
+      active: true,
+      researcherId: "researcher-2",
+    });
+    await expect(
+      other.requirePublicationDocumentAccess("published", "other"),
     ).resolves.toMatchObject({ id: "published" });
     await expect(
-      service().requirePublicOrManagerAccess("draft", "user-1"),
+      other.requirePublicationDocumentAccess("draft", "other"),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      service().requirePublicationDocumentAccess("draft", "user-1"),
     ).resolves.toMatchObject({ id: "draft" });
   });
 });

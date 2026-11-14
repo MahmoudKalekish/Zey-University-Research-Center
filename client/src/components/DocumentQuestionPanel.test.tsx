@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentQuestionPanel } from "./DocumentQuestionPanel";
 import { api } from "../services/api";
@@ -12,7 +12,8 @@ beforeEach(() => {
 describe("document question panel", () => {
   it("asks only the selected publication and links the cited page", async () => {
     vi.mocked(api).mockResolvedValue({
-      answer: "Nine confirmed leaks",
+      answer:
+        "## Key findings\nNine confirmed leaks\n\n- **Detection:** 9 of 10\n- <b>Two false alarms</b>",
       mode: "OLLAMA",
       evidence: [
         {
@@ -29,10 +30,15 @@ describe("document question panel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
     expect(await screen.findByText("Nine confirmed leaks")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Page 8" })).toHaveProperty(
-      "href",
-      expect.stringContaining("/water-paper/document#page=8"),
-    );
+    expect(screen.getByRole("heading", { name: "Key findings" })).toBeTruthy();
+    const findings = within(screen.getByRole("list"));
+    expect(findings.getAllByRole("listitem")).toHaveLength(2);
+    expect(findings.getByText("Detection:").tagName).toBe("STRONG");
+    expect(findings.getByText("<b>Two false alarms</b>")).toBeTruthy();
+    const supporting = screen.getByText("Supporting passages (1)");
+    expect(supporting.closest("details")?.open).toBe(false);
+    fireEvent.click(supporting);
+    expect(screen.getByRole("button", { name: "Page 8" })).toBeTruthy();
     expect(vi.mocked(api).mock.calls[0]![0]).toBe(
       "/publications/water-paper/ask",
     );
